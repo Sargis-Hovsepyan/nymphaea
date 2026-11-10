@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}body{margin:0}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}</style>
+<title>Nymphaea Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%226%22 fill=%22%23141210%22/%3E%3Cpath d=%22M16 7c3 4 3 9 0 15-3-6-3-11 0-15zM16 22c-4-1-8-4-9-9 4 0 7 3 9 9zm0 0c4-1 8-4 9-9-4 0-7 3-9 9z%22 fill=%22%23e0a645%22/%3E%3C/svg%3E">
+<meta name="description" content="Nymphaea Studio turns a PDF, Word, EPUB, Markdown or text story into an illustrated book: scrolled, paged in spreads, in chapter cards or printed, and gives it back as one HTML file or an EPUB. Your words are never changed.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" id="nyFonts" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wdth,wght@75..100,400..700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+</head>
+<body>
+
+<!-- The book. This markup is what an exported book (and the Studio preview) is made of. -->
+<div id="shell">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><filter id="nyWash" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".035" numOctaves="3" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G" result="d"/><feGaussianBlur in="d" stdDeviation=".7"/></filter></svg>
+<div class="bar">
+  <span class="t" id="barTitle">Nymphaea</span>
+  <span class="r"><span id="pct">0%</span><button class="btn icon" id="openStudio" type="button" aria-expanded="false" aria-controls="studio" aria-label="Reading settings">Aa</button></span>
+  <div class="line" aria-hidden="true"><i id="prog"></i></div>
+</div>
+<div class="room" aria-hidden="true"></div>
+<div class="pages" id="pages">
+<main>
+  <section class="cover">
+    <div class="art" id="coverArt"></div>
+    <h1 id="coverTitle"></h1>
+    <p class="sub" id="coverSub" hidden></p>
+    <p class="by" id="coverBy" hidden></p>
+    <p class="hint">Scroll to begin<i></i></p>
+  </section>
+  <section class="ded" id="ded" hidden></section>
+  <section class="text" id="text"></section>
+</main>
+</div>
+
+<div class="scrim" id="rdScrim" hidden></div>
+<aside class="studio" id="studio" aria-label="Reading settings" hidden>
+  <header><h2>Reading</h2><button class="btn" id="closeStudio" type="button">Done</button></header>
+  <section id="tocSec" hidden>
+    <h3>Contents</h3>
+    <ol class="toc" id="toc"></ol>
+  </section>
+  <section>
+    <h3>Page</h3>
+    <div class="seg" data-key="layout"><button type="button" data-v="scroll">Scroll</button><button type="button" data-v="cards">Chapters</button><button type="button" data-v="paged">Pages</button></div>
+    <div class="seg" data-key="mode"><button type="button" data-v="auto">Auto</button><button type="button" data-v="light">Light</button><button type="button" data-v="dark">Dark</button></div>
+    <div class="swatches" data-key="theme" id="rdThemes" aria-label="Theme"></div>
+  </section>
+  <section>
+    <h3>Light</h3>
+    <div class="seg" data-key="light"><button type="button" data-v="off">Off</button><button type="button" data-v="lamp">Lamp</button><button type="button" data-v="candle">Candle</button><button type="button" data-v="focus">Focus</button><button type="button" data-v="dawn">Dawn</button></div>
+    <label class="sw">Light follows the pointer<input type="checkbox" data-key="follow"></label>
+    <label class="sw">Flicker<input type="checkbox" data-key="flicker"></label>
+    <label class="sw">Animate as you read<input type="checkbox" data-key="motion"></label>
+  </section>
+  <section>
+    <h3>Type</h3>
+    <select class="pick" data-key="pairing" id="rdPairing" aria-label="Typeface"></select>
+    <div class="field"><span>Size <b data-out="fontSize"></b></span><input type="range" data-key="fontSize" min="15" max="25" step="1" aria-label="Text size"></div>
+    <div class="seg" data-key="measure"><button type="button" data-v="narrow">Narrow</button><button type="button" data-v="normal">Normal</button><button type="button" data-v="wide">Wide</button></div>
+    <div class="seg" data-key="reveal"><button type="button" data-v="none">Still</button><button type="button" data-v="rise">Rise</button><button type="button" data-v="fade">Fade</button><button type="button" data-v="ink">Ink</button></div>
+  </section>
+  <section>
+    <div class="row"><button class="btn" id="printBook" type="button">Print or save as PDF</button><button class="btn" id="resetLook" type="button">The author’s look</button></div>
+    <p class="note">These change how the book looks for you. The words are the author’s, unchanged.</p>
+  </section>
+</aside>
+</div>
+
+
+<!-- The Studio: text in, a book out. Removed from the page in an exported book. -->
+<div id="maker" class="mk" hidden>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="i-lotus" viewBox="0 0 32 32"><path d="M16 7c3 4 3 9 0 15-3-6-3-11 0-15zM16 22c-4-1-8-4-9-9 4 0 7 3 9 9zm0 0c4-1 8-4 9-9-4 0-7 3-9 9z"/></symbol></svg>
+
+  <!-- Landing: what this is, a live book to restyle, and the way in -->
+  <div class="ld" id="mkLanding">
+    <header class="ld-top">
+      <span class="ld-brand"><svg class="mk-mark" aria-hidden="true"><use href="#i-lotus"/></svg>Nymphaea</span>
+      <span class="ld-actions">
+        <button class="mk-icon mk-mode" type="button" aria-label="Colours" title="Colours"></button>
+        <button class="btn" id="mkBack" type="button" hidden>Back to your book</button>
+      </span>
+    </header>
+
+    <section class="ld-hero">
+      <div class="ld-copy">
+        <h1 class="ld-h">Turn a manuscript into a book.</h1>
+        <p class="ld-lede">Drop in a PDF, a Word file, an EPUB or plain text. Nymphaea sets it as an illustrated book you can read on a screen, in spreads, on paper or on an e-reader. Your words are never changed.</p>
+        <div class="ld-cta">
+          <label class="btn primary lg file">Open a file<input type="file" id="mkFiles" multiple></label>
+          <button class="btn lg" id="mkPaste" type="button">Paste text</button>
+          <button class="btn lg" id="mkSample" type="button">Try the sample</button>
+        </div>
+        <div class="mk-report" id="mkLdReport" role="status" aria-live="polite" hidden></div>
+        <p class="ld-fine">You can also drop files anywhere on this page, or several episodes at once. Files stay on this device.</p>
+      </div>
+      <div class="ld-demo">
+        <div class="ld-frame"><iframe id="ldFrame" title="A sample book you can restyle"></iframe></div>
+        <div class="ld-chips" id="ldChips" role="group" aria-label="Try an edition"></div>
+      </div>
+    </section>
+
+    <section class="ld-sec" aria-labelledby="ld-in">
+      <h2 id="ld-in">What goes in</h2>
+      <ul class="ld-list">
+        <li><b>PDF</b><span>Page numbers and running heads come out, split paragraphs are joined, italics are kept.</span></li>
+        <li><b>Word and EPUB</b><span>Headings, italics and line breaks become Markdown.</span></li>
+        <li><b>Web pages</b><span>Or paste straight from Word or Google Docs.</span></li>
+        <li><b>Markdown and text</b><span>One file, or a whole series, ordered by file name.</span></li>
+      </ul>
+    </section>
+
+    <section class="ld-sec" aria-labelledby="ld-make">
+      <h2 id="ld-make">How it becomes a book</h2>
+      <ol class="ld-steps">
+        <li><b>Check the text</b><span>Everything becomes Markdown you can read and edit. Chapters, quotes and verse are found for you and listed, never changed silently.</span></li>
+        <li><b>Place the pictures</b><span>Small drawings sit where the story changes scene. Each caption is a phrase quoted exactly from your words.</span></li>
+        <li><b>Choose a look</b><span>Eight editions to start from, nine type pairings, six palettes, each in light and dark.</span></li>
+      </ol>
+    </section>
+
+    <section class="ld-sec" aria-labelledby="ld-out">
+      <h2 id="ld-out">What comes out</h2>
+      <ul class="ld-list">
+        <li><b>An HTML book</b><span>One file. It works offline and can go straight onto GitHub Pages.</span></li>
+        <li><b>An EPUB</b><span>For Apple Books, Kobo and other e-readers.</span></li>
+        <li><b>A printed page</b><span>Trim sizes, mirrored margins, page numbers. Save it as a PDF.</span></li>
+        <li><b>Markdown</b><span>The text itself, to keep or take elsewhere.</span></li>
+      </ul>
+    </section>
+
+    <section class="ld-promise">
+      <h2>Your words stay yours.</h2>
+      <p>Nymphaea only adds things around the text: pictures, spacing, type. A caption that isn’t an exact quote of your paragraph is replaced before it reaches the page, and every import is tested to keep every paragraph.</p>
+    </section>
+  </div>
+
+  <!-- Workspace: manuscript, the live book, the design inspector -->
+  <div class="wk" id="mkWork" hidden data-pane="manuscript" data-tab="text">
+    <header class="wk-top">
+      <button class="wk-home" id="mkHome" type="button" aria-label="Nymphaea home" title="Home"><svg class="mk-mark" aria-hidden="true"><use href="#i-lotus"/></svg></button>
+      <input class="wk-title" id="mkTitle" type="text" autocomplete="off" aria-label="Book title" placeholder="Untitled book">
+      <span class="wk-save" id="mkSave" role="status">Saved</span>
+      <div class="seg wk-sidesw" id="mkSideSw" aria-label="Panel"><button type="button" data-side="manuscript">Manuscript</button><button type="button" data-side="design">Design</button></div>
+      <div class="wk-actions">
+        <button class="mk-icon mk-mode" type="button" aria-label="Colours" title="Colours"></button>
+        <details class="wk-menu" id="mkMenu">
+          <summary class="mk-icon" aria-label="Book menu" title="Book menu"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="19" cy="12" r="1.4"/></svg></summary>
+          <div class="wk-pop" role="menu">
+            <button type="button" role="menuitem" id="mkNew">New book</button>
+            <button type="button" role="menuitem" id="mkMdDl">Download Markdown</button>
+            <button type="button" role="menuitem" id="mkOpenTab">Open the book in a new tab</button>
+          </div>
+        </details>
+        <button class="btn primary" id="mkExportBtn" type="button">Export</button>
+      </div>
+    </header>
+
+    <div class="wk-body">
+      <aside class="wk-left" id="paneLeft" aria-label="Manuscript">
+        <div class="wk-tabs seg" id="mkTabs" role="tablist" aria-label="Manuscript"><button type="button" role="tab" data-tab="text">Text</button><button type="button" role="tab" data-tab="pictures">Pictures</button></div>
+        <div class="wk-scroll" id="mkScroll">
+          <div class="wk-tabpanel" id="tabText" role="tabpanel">
+            <div class="mk-report" id="mkReport" role="status" aria-live="polite" hidden></div>
+            <details class="fold" id="mkFold">
+              <summary>Title page</summary>
+              <div class="mk-meta">
+                <label class="field"><span>Subtitle</span><input class="mk-input" id="mkSubtitle" type="text" autocomplete="off" placeholder="Optional"></label>
+                <label class="field"><span>Author</span><input class="mk-input" id="mkAuthor" type="text" autocomplete="off" placeholder="Optional"></label>
+                <label class="field"><span>Dedication</span><input class="mk-input" id="mkDedication" type="text" autocomplete="off" placeholder="Optional"></label>
+              </div>
+            </details>
+            <div class="mk-outline" id="mkOutline" aria-label="Outline"></div>
+            <details class="mk-typo" id="mkTypo" hidden></details>
+            <div class="ed" id="mkEd">
+              <pre class="ed-hi" id="mkHi" aria-hidden="true"></pre>
+              <textarea class="ed-ta" id="mkMd" spellcheck="false" aria-label="Markdown text" placeholder="Paste a story, a chapter or a whole book here."></textarea>
+            </div>
+            <p class="note" id="mkMdStats"></p>
+            <details class="fold">
+              <summary>Formatting help</summary>
+              <p class="note">Start a line with <code>#</code> for a chapter or <code>##</code> for a section. <code>&gt;</code> makes a quote, and under a heading an epigraph. End a line with <code>\</code> to keep its line break, for verse. <code>*word*</code> is italic, <code>**word**</code> bold, and <code>* * *</code> a scene break. Pasting from Word or Google Docs keeps italics and headings.</p>
+            </details>
+          </div>
+
+          <div class="wk-tabpanel" id="tabPictures" role="tabpanel" hidden>
+            <div class="field"><span>How many pictures</span>
+              <div class="seg" data-key="density"><button type="button" data-v="few">Few</button><button type="button" data-v="some">Some</button><button type="button" data-v="many">Many</button></div></div>
+            <div class="row">
+              <button class="btn" id="mkAuto" type="button">Place automatically</button>
+              <button class="btn" id="mkAsk" type="button" hidden>Let Claude stage it</button>
+              <button class="btn" id="mkStop" type="button" hidden>Stop</button>
+              <button class="btn quiet" id="mkClear" type="button">Remove all</button>
+            </div>
+            <p class="note" id="mkSceneNote" role="status" aria-live="polite"></p>
+            <ol class="mk-scenes" id="mkScenes"></ol>
+            <div class="mk-add">
+              <span>Add a picture after paragraph</span>
+              <input class="mk-input" id="mkAddAt" type="number" min="1" inputmode="numeric" aria-label="Paragraph number">
+              <select class="mk-input" id="mkAddScene" aria-label="Scene"></select>
+              <button class="btn" id="mkAddBtn" type="button">Add</button>
+            </div>
+            <p class="note">Tip: click any paragraph in the book to fill in its number.</p>
+          </div>
+        </div>
+      </aside>
+
+      <section class="wk-canvas" id="paneBook" aria-label="Book preview">
+        <p class="wk-pnote" id="mkPnote">Preview</p>
+        <div class="mk-stage" id="mkStage">
+          <iframe id="mkFrame" title="Preview of your book"></iframe>
+          <div class="mk-empty" id="mkEmpty">
+            <svg aria-hidden="true"><use href="#i-lotus"/></svg>
+            <p>Your book appears here.</p>
+            <span>Add a file or some text to begin.</span>
+          </div>
+        </div>
+        <div class="wk-dock" role="toolbar" aria-label="Preview">
+          <div class="seg" id="mkDevice" aria-label="Device"><button type="button" data-d="desk" aria-pressed="true">Desktop</button><button type="button" data-d="tablet" aria-pressed="false">Tablet</button><button type="button" data-d="phone" aria-pressed="false">Phone</button></div>
+          <div class="seg" data-key="layout" aria-label="Form"><button type="button" data-v="scroll">Scroll</button><button type="button" data-v="cards">Cards</button><button type="button" data-v="paged">Pages</button></div>
+          <button class="btn quiet" id="mkTop" type="button">Back to start</button>
+        </div>
+      </section>
+
+      <aside class="wk-right" id="paneDesign" aria-label="Design">
+        <div class="wk-scroll">
+          <h2 class="wk-h">Edition</h2>
+          <div class="mk-presets" id="mkPresets" role="list"></div>
+
+          <details class="acc" open>
+            <summary>Form</summary>
+            <div class="field"><span>How the book reads</span>
+              <div class="seg" data-key="layout"><button type="button" data-v="scroll">Scroll</button><button type="button" data-v="cards">Chapter cards</button><button type="button" data-v="paged">Paged spreads</button></div></div>
+            <div class="field"><span>Printed page size</span>
+              <div class="seg" data-key="trim"><button type="button" data-v="a5">A5</button><button type="button" data-v="6x9">6 × 9 in</button><button type="button" data-v="a4">A4</button><button type="button" data-v="letter">Letter</button></div></div>
+          </details>
+
+          <details class="acc" open>
+            <summary>Colour</summary>
+            <div class="mk-themes" data-key="theme" id="mkThemes"></div>
+            <div class="field"><span>Mood</span>
+              <div class="seg" data-key="mode"><button type="button" data-v="auto">Follow the device</button><button type="button" data-v="light">Light</button><button type="button" data-v="dark">Dark</button></div></div>
+          </details>
+
+          <details class="acc" open>
+            <summary>Type</summary>
+            <div class="mk-type" data-key="pairing" id="mkType"></div>
+            <div class="field"><span>Size <b data-out="fontSize"></b></span><input type="range" data-key="fontSize" min="15" max="25" step="1" aria-label="Text size"></div>
+            <div class="field"><span>Line length in characters</span>
+              <div class="seg" data-key="measure"><button type="button" data-v="narrow">55</button><button type="button" data-v="normal">66</button><button type="button" data-v="wide">75</button></div></div>
+          </details>
+
+          <details class="acc">
+            <summary>Paragraphs and chapters</summary>
+            <div class="field"><span>Paragraphs</span>
+              <div class="seg" data-key="para"><button type="button" data-v="book">Indented</button><button type="button" data-v="web">Spaced</button></div></div>
+            <div class="field"><span>Alignment</span>
+              <div class="seg" data-key="align"><button type="button" data-v="ragged">Ragged</button><button type="button" data-v="justify">Justified</button></div></div>
+            <div class="field"><span>Chapter openings</span>
+              <div class="seg" data-key="opening"><button type="button" data-v="drop">Drop cap</button><button type="button" data-v="raised">Raised</button><button type="button" data-v="smallcaps">Small caps</button><button type="button" data-v="none">Plain</button></div></div>
+            <div class="field"><span>Chapter numbers</span>
+              <div class="seg" data-key="numerals"><button type="button" data-v="roman">I II</button><button type="button" data-v="words">One Two</button><button type="button" data-v="arabic">1 2</button><button type="button" data-v="none">None</button></div></div>
+            <div class="field"><span>Scene breaks</span>
+              <div class="seg" data-key="ornament"><button type="button" data-v="asterism">⁂</button><button type="button" data-v="dinkus">* * *</button><button type="button" data-v="hedera">❦</button><button type="button" data-v="lotus">Lotus</button><button type="button" data-v="rule">Rule</button></div></div>
+            <label class="sw">Short lines stand alone as beats<input type="checkbox" data-key="beats"></label>
+          </details>
+
+          <details class="acc">
+            <summary>Light and motion</summary>
+            <div class="field"><span>Light</span>
+              <div class="seg" data-key="light"><button type="button" data-v="off">Off</button><button type="button" data-v="lamp">Lamp</button><button type="button" data-v="candle">Candle</button><button type="button" data-v="focus">Focus</button><button type="button" data-v="dawn">Dawn</button></div></div>
+            <p class="note" id="mkLightNote"></p>
+            <label class="sw">Light follows the pointer<input type="checkbox" data-key="follow"></label>
+            <label class="sw">Flicker<input type="checkbox" data-key="flicker"></label>
+            <div class="field"><span>Lines arrive</span>
+              <div class="seg" data-key="reveal"><button type="button" data-v="none">Still</button><button type="button" data-v="rise">Rise</button><button type="button" data-v="fade">Fade</button><button type="button" data-v="ink">Ink</button></div></div>
+            <label class="sw">Animate pictures as the reader goes<input type="checkbox" data-key="motion"></label>
+          </details>
+
+          <details class="acc">
+            <summary>Picture style</summary>
+            <div class="mk-styles" data-key="style" id="mkStyles"></div>
+            <div class="field"><span>Size</span>
+              <div class="seg" data-key="size"><button type="button" data-v="s">Small</button><button type="button" data-v="m">Medium</button><button type="button" data-v="l">Large</button></div></div>
+          </details>
+
+          <details class="acc">
+            <summary>Readers</summary>
+            <label class="sw">Readers can change the page, light and type for themselves<input type="checkbox" data-key="readerControls"></label>
+          </details>
+          <div class="row"><button class="btn quiet" id="mkResetLook" type="button">Reset to the default look</button></div>
+        </div>
+      </aside>
+    </div>
+
+    <nav class="wk-nav" aria-label="Studio">
+      <button type="button" data-pane="manuscript" data-tab="text">Text</button>
+      <button type="button" data-pane="manuscript" data-tab="pictures">Pictures</button>
+      <button type="button" data-pane="book">Book</button>
+      <button type="button" data-pane="design">Design</button>
+    </nav>
+  </div>
+
+  <!-- Export -->
+  <dialog class="sheet" id="mkExport" aria-labelledby="mkExTitle">
+    <header><h2 id="mkExTitle">Export your book</h2><button class="mk-icon" id="mkExClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+    <dl class="mk-sum" id="mkSum"></dl>
+    <div class="mk-outs">
+      <button class="mk-out primary" id="mkDownload" type="button"><b>HTML book</b><span>One file with the pictures, light and every form. Works offline.</span></button>
+      <button class="mk-out" id="mkEpub" type="button"><b>EPUB</b><span>For Apple Books, Kobo and other e-readers.</span></button>
+      <button class="mk-out" id="mkPrint" type="button"><b>Print or PDF</b><span>A typeset page with folios and mirrored margins.</span></button>
+      <button class="mk-out" id="mkMdDl2" type="button"><b>Markdown</b><span>The text itself, to keep or edit anywhere.</span></button>
+    </div>
+    <p class="note" id="mkDlNote" role="status" aria-live="polite"></p>
+  </dialog>
+
+  <div class="toasts" id="mkToasts" role="status" aria-live="polite"></div>
+  <div class="mk-dropveil" id="mkVeil" aria-hidden="true"><span>Drop to read</span></div>
+</div>
+
+<script type="module" src="./main.ts"></script>
+</body>
+</html>
