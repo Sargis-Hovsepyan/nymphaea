@@ -8,7 +8,7 @@ The rename touches:
 - the `<title>`, top bar and cover in `index.html`
 - the export file name (`nymphaea-<book>.html`)
 - the localStorage keys (`lp-book` becomes `nymphaea-book` and `lp-settings` becomes `nymphaea-settings`, with a one-time migration so nothing is lost)
-- `README.md` and `CLAUDE.md`
+- `README.md`
 - `package.json` (`"name": "nymphaea"`)
 
 The name lives in a single `APP_NAME` constant in `src/brand.ts`, so a later change is one line. The lamp stays as a *feature*, not the brand.
@@ -19,7 +19,7 @@ The name lives in a single `APP_NAME` constant in `src/brand.ts`, so a later cha
 
 - Work that rules can do is done by rules.
 - Harder judgement goes to a pluggable AI.
-- The one rule in CLAUDE.md is absolute: **the words are never changed, cut, merged or reordered.** Everything we add sits *around* the text.
+- The one rule in README.md is absolute: **the words are never changed, cut, merged or reordered.** Everything we add sits *around* the text.
 
 This plan is the research, the product idea, the architecture and a phased build order. Research gets appended to `docs/research.md`.
 
@@ -205,7 +205,7 @@ The AI returns **structure only**: indexes, scene ids, and quoted spans as `{blo
 ## 8. Critical files
 - `index.html`: the source to split. Reuse `parseText`, `blocksToText`, `scoreOf`/`bestScene`/`captionFor`/`autoStage`, `SCENES` and helpers (`person`, `piece`, `board`…), `R`, `renderBook`, `target`/`frame`, `lampStep`, `pdfText`, `loadScript`, `stageWithClaude`, `store`/`load`.
 - New: `package.json`, `vite.config.ts`, `src/{import,analyze,stage,scenes,renderers,ui}/`, `tests/` (fixtures: episode 01 as md, docx, epub, pdf).
-- Docs: append §2 to `docs/research.md`. Update the `CLAUDE.md` parameters table and architecture, and `README.md`.
+- Docs: append §2 to `docs/research.md`. Update `README.md`.
 
 ## 9. Verification
 - `npm test`:

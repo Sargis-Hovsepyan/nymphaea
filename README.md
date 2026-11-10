@@ -40,9 +40,9 @@ The middle pane is the real book, live, at desktop, tablet or phone width. Click
 
 ## Put it on GitHub Pages
 
-1. Push this folder to a GitHub repository.
-2. In the repository, go to **Settings → Pages → Build and deployment**. Choose **Deploy from a branch**, select your branch, and select the **/ (root)** folder.
-3. Your book is live at `https://<user>.github.io/<repo>/`.
+1. In the repository, go to **Settings → Pages → Build and deployment**.
+2. Choose **Deploy from a branch**, select `master`, and select the **/ (root)** folder.
+3. Your book is live at `https://sargis-hovsepyan.github.io/nymphaea/`.
 
 The root `index.html` is self-contained, and `.nojekyll` tells Pages to serve it as-is. After you change the code, run `npm run build` and commit the new `index.html`.
 
@@ -57,10 +57,25 @@ npm test        # every paragraph survives every import; the Guard; staging; pal
 npm run build   # typecheck, then write the single-file ./index.html
 ```
 
+## The one rule
+
+**Never change, cut, summarize, merge or reorder the author's words.** The engine only adds things around the text: pictures, captions, spacing, emphasis, typography.
+- Every staging plan goes through `guardScenes()` (`src/stage/guard.ts`). A caption must be an exact quote from its paragraph or one of the 6 before it, or it is replaced by one.
+- Heuristics never act silently: importers write what they guess into Markdown you can edit, or list it in their report.
+- Micro-typography and the editor's colouring are display-only. Copying the page gives back your exact characters.
+- `src/seed.ts` is generated from the sample story. Never retype it by hand.
+
 ## Files
 
 - `index.html`: the app (built; open this one).
-- `src/`: the source. `src/index.html` is the page, and `src/main.ts` is the entry point. See `CLAUDE.md` for the map.
+- `src/`: the source. `src/index.html` is the page and `src/main.ts` the entry point, which picks one of three modes: the Studio, an exported book, or the Studio's preview frame.
+  - `maker/`: the Studio (landing, panes, editor, export).
+  - `import/`: PDF, Word, EPUB and HTML to Markdown.
+  - `stage/`: picture placement and the caption guard.
+  - `design/`: themes, type pairings, editions and the Studio palette.
+  - `layout/`, `ui/`: paged spreads, print, and the reader.
+  - `vscenes/`, `scenes/`, `renderers/`: the pictures and their styles.
+  - `export.ts`, `epub/`: the HTML and EPUB books.
 - `tests/`: the guarantees, starting with "every paragraph survives".
 - `episodes/`: the story, one Markdown file per episode.
 - `docs/roadmap.md`: the platform plan.
