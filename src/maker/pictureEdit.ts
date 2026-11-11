@@ -52,7 +52,7 @@ export function stage(host: HTMLElement, scene: string, sp: Spec | null, label: 
   const tl = timeline(sp?.acts || []);
   // Acts that play at the same time each get a lane.
   const lane: number[] = [];
-  tl.segs.forEach((g, i) => { let l = 0; while (tl.segs.slice(0, i).some((h, j) => lane[j] === l && h.end > g.start + 0.05 && h.start < g.end - 0.05)) l++; lane.push(l); });
+  tl.segs.forEach((g, i) => { let l = 0; while (tl.segs.slice(0, i).some((h, j) => lane[j] === l && h.end > g.start + 0.25 && h.start < g.end - 0.25)) l++; lane.push(l); });
   const lanes = Math.max(1, ...lane.map((l) => l + 1));
   const segs = tl.segs.map((g, i) => {
     const l = (g.start / tl.loop) * 100, w = Math.max(3, ((g.end - g.start) / tl.loop) * 100), hgt = 100 / lanes;

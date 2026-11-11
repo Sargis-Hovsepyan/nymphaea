@@ -47,7 +47,7 @@ async function openBook(b: Shelved): Promise<void> {
     hooks.refresh();
     sess.preview.send({ type: "top" });
   }
-  showWork("manuscript", "text");
+  showWork("manuscript", "pictures");
 }
 
 const fmtDate = (t: number) => new Date(t).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });

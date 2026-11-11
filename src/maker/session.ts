@@ -30,7 +30,7 @@ export const sess = {
 };
 
 /** Set by index.ts, so parts can ask for a full refresh without importing it. */
-export const hooks = { refresh: () => {}, renderScenes: () => {}, armWords: (_k: number) => {}, openLarge: (_k: number) => {} };
+export const hooks = { refresh: () => {}, renderScenes: () => {}, armWords: (_k: number) => {}, openLarge: (_k: number) => {}, openPanel: () => {} };
 
 /** Paintings in progress, keyed by their place in the book (not by card index, which shifts). */
 export const painting = new Map<string, AbortController>();

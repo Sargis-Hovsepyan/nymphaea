@@ -58,16 +58,28 @@ function bookHtml(): string {
 export function downloadBook(): void {
   if (!hasText() || !canExport(sess.pristine)) return;
   save(exportFileName(book().title), bookHtml(), "text/html");
+  if (($("mkExport") as HTMLDialogElement).open) closeExport();
 }
+const EXPORT_BUTTONS = ["mkDownload", "mkEpub", "mkMdDl", "mkPrint"];
 async function downloadEpub(): Promise<void> {
   if (!hasText()) return;
   const note = $("mkDlNote");
-  note.textContent = "Making the EPUB…";
+  note.classList.remove("warn");
+  note.textContent = "Making the EPUB: drawing each picture…";
+  EXPORT_BUTTONS.forEach((id) => { ($(id) as HTMLButtonElement).disabled = true; });
   try {
     const pics = state.settings.style === "none" || state.settings.style === "orn" ? [] : await sess.preview.snapshots();
     const data = buildEpub(book(), state.settings, pics);
     await save(exportFileName(book().title).replace(/\.html$/, ".epub"), data, "application/epub+zip");
-  } finally { note.textContent = ""; }
+    note.textContent = "";
+    closeExport();
+  } catch (e) {
+    note.classList.add("warn");
+    note.textContent = "Couldn’t make the EPUB" + (e instanceof Error && e.message ? ": " + e.message : ".") + " The HTML book still works.";
+  } finally {
+    EXPORT_BUTTONS.forEach((id) => { ($(id) as HTMLButtonElement).disabled = false; });
+    hooks.refresh();
+  }
 }
 function downloadMd(): void {
   if (!hasText()) return;

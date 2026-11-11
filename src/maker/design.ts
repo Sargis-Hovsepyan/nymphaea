@@ -104,7 +104,7 @@ function buildPresets(title: string, line: string): void {
   box.textContent = "";
   PRESETS.forEach((p) => {
     const s = { ...DEFAULTS, ...p.s }, pal = palette(s.theme, s.mode !== "light"), P = PAIRINGS[s.pairing];
-    const b = document.createElement("button"); b.type = "button"; b.dataset.preset = p.id; b.setAttribute("role", "listitem");
+    const b = document.createElement("button"); b.type = "button"; b.dataset.preset = p.id;
     b.style.cssText = "--pv-bg:" + pal.desk + ";--pv-ink:" + pal.ink + ";--pv-mut:" + pal.muted + ";--pv-acc:" + pal.accent + ";--pv-rule:" + pal.rule + ";--pv-body:" + P.body + ";--pv-disp:" + P.display;
     const card = document.createElement("span"); card.className = "pv pv-" + s.layout + (s.light !== "off" ? " pv-lit" : "");
     const h = document.createElement("span"); h.className = "pv-t"; h.textContent = title;

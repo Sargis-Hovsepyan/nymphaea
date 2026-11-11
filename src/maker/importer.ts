@@ -45,7 +45,7 @@ export async function doImport(files: FileList | File[]): Promise<void> {
     loadText(r.markdown, r.title, r.author || "");
     const B = book();
     $("mkLdReport").hidden = true;
-    showWork("manuscript", "text");
+    showWork("manuscript", "pictures");
     report(["Made “" + B.title + "”: " + plural(B.blocks.filter((b) => b.type !== "h").length, "paragraph") + " and " + plural(B.scenes.length, "picture") + ".", ...r.notes], { dismiss: true });
   } catch (e: any) {
     report([e && e.message === "none" ? "Those files aren’t a format Nymphaea reads (PDF, Word, EPUB, HTML, Markdown or text)." : "Couldn’t read that file.", "You can copy its text and use Paste text instead."], { warn: true });

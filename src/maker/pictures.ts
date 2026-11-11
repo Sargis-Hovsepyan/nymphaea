@@ -5,7 +5,6 @@ import { decode, encode, blank, LABEL, type Spec } from "../compose/spec";
 import { actsSummary, pictureEditor } from "./pictureEdit";
 import { inReach, readQuoteAt, trackSpecs } from "../compose/read";
 import { shown, type Hit } from "../stage/locate";
-import { NUM } from "../settings";
 import { autoStage, captionFor, captionOf } from "../stage/auto";
 import { captionIsQuoted } from "../stage/guard";
 import { SCENE_DESC, SCENE_LIST } from "../stage/keywords";
@@ -71,7 +70,7 @@ export function redrawFrom(k: number, h: Hit): void {
   delete s.img; delete s.prompt;
   openKey = pkey(s);
   commitScenes(B.scenes);
-  toast("Picture " + (NUM[k] || k + 1) + " is now drawn from “" + clip(shown(quote), 40) + "”." + (had ? " The painting was for the old words, so the drawing shows now." : ""), false, UNDO);
+  toast("Picture " + (k + 1) + " is now drawn from “" + clip(shown(quote), 40) + "”." + (had ? " The painting was for the old words, so the drawing shows now." : ""), false, UNDO);
 }
 
 /* ---------------- cards ---------------- */
@@ -179,7 +178,7 @@ export function renderScenes(): void {
     const src = s.img && sess.images[s.img];
     if (src) { const im = document.createElement("img"); im.src = src; im.alt = ""; th.appendChild(im); const ai = document.createElement("b"); ai.className = "ai"; ai.textContent = "AI"; th.appendChild(ai); }
     else th.innerHTML = thumb(s.scene);
-    const n = document.createElement("i"); n.textContent = NUM[k] || String(k + 1); th.appendChild(n);
+    const n = document.createElement("i"); n.textContent = String(k + 1); th.appendChild(n);
     const t = document.createElement("span"); t.className = "card-t";
     const c = document.createElement("span"); c.className = "card-cap"; c.textContent = s.caption || "No caption";
     const m = document.createElement("span"); m.className = "card-m"; m.textContent = "¶ " + pNumber(s.after) + (isCover(s) ? " · Cover" : "");
@@ -205,6 +204,7 @@ export function openCard(k: number, focus = false): void {
   const s = book().scenes[k];
   if (!s) return;
   openKey = pkey(s);
+  hooks.openPanel();
   renderScenes();
   const li = $("mkScenes").querySelector<HTMLElement>('li[data-k="' + k + '"]');
   if (li) { li.scrollIntoView({ block: "nearest" }); if (focus) li.querySelector<HTMLElement>(".card-h")!.focus({ preventScroll: true }); }
@@ -320,7 +320,7 @@ export function initScenes(): void {
     else if (f === "cov") {
       checkpoint();
       if (isCover(s)) { delete B.cover; toast("The cover is chosen by the book again.", false, UNDO); }
-      else { B.cover = s.scene; toast("Picture " + (NUM[k] || k + 1) + " is the cover.", false, UNDO); }
+      else { B.cover = s.scene; toast("Picture " + (k + 1) + " is the cover.", false, UNDO); }
       commitScenes(B.scenes);
     }
     else if (f === "q-pick") hooks.armWords(k);

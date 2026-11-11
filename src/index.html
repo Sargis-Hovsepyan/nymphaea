@@ -201,7 +201,7 @@
 
     <div class="wk-body">
       <nav class="wk-rail" id="mkTabs" role="tablist" aria-label="Panels" aria-orientation="vertical">
-        <button type="button" role="tab" id="tabBtnPictures" aria-controls="tabPictures" aria-selected="true" data-tab="pictures"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 11h10M5 16h14"/></svg><span>Book</span></button>
+        <button type="button" role="tab" id="tabBtnPictures" aria-controls="tabPictures" aria-selected="true" data-tab="pictures"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 11h10M5 16h14"/></svg><span>Pictures</span></button>
         <button type="button" role="tab" id="tabBtnText" aria-controls="tabText" aria-selected="false" tabindex="-1" data-tab="text"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-1 10-10-3-3L6 15z"/><path d="M14 6l3 3"/></svg><span>Text</span></button>
         <span class="wk-rail-sp"></span>
         <button type="button" class="wk-rail-x" id="mkRailAi" title="AI models (optional)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg><span>Models</span></button>
@@ -271,7 +271,8 @@
         <div class="mk-stage" id="mkStage">
           <div class="mk-thumb" id="mkThumb" role="navigation" aria-label="Chapters and pictures"></div>
           <div class="mk-insp" id="mkInsp" role="dialog" aria-label="Picture" hidden></div>
-          <div class="mk-words" id="mkWords" role="dialog" aria-label="A picture of the selected words" hidden></div>
+          <div class="mk-arm" id="mkArm" role="status" hidden></div>
+        <div class="mk-words" id="mkWords" role="dialog" aria-label="A picture of the selected words" hidden></div>
           <iframe id="mkFrame" title="Preview of your book"></iframe>
           <div class="mk-empty" id="mkEmpty">
             <svg aria-hidden="true"><use href="#i-lotus"/></svg>
@@ -296,7 +297,7 @@
       <aside class="wk-right" id="paneDesign" aria-label="Design">
         <div class="wk-scroll">
           <h2 class="wk-h">Edition</h2>
-          <div class="mk-presets" id="mkPresets" role="list"></div>
+          <div class="mk-presets" id="mkPresets" role="group" aria-label="Editions"></div>
 
           <details class="acc" open>
             <summary>Print</summary>
@@ -307,7 +308,7 @@
           <details class="acc" open>
             <summary>Colour</summary>
             <div class="mk-themes" data-key="theme" id="mkThemes"></div>
-            <div class="field"><span>Mood</span>
+            <div class="field"><span>Light or dark</span>
               <div class="seg" data-key="mode"><button type="button" data-v="auto">Follow the device</button><button type="button" data-v="light">Light</button><button type="button" data-v="dark">Dark</button></div></div>
           </details>
 
@@ -327,9 +328,9 @@
               <div class="seg" data-key="align"><button type="button" data-v="ragged">Ragged</button><button type="button" data-v="justify">Justified</button></div></div>
             <div class="field"><span>Chapter openings</span>
               <div class="seg" data-key="opening"><button type="button" data-v="drop">Drop cap</button><button type="button" data-v="raised">Raised</button><button type="button" data-v="smallcaps">Small caps</button><button type="button" data-v="none">Plain</button></div></div>
-            <div class="field"><span>Chapter numbers</span>
-            <div class="field"><span>Chapter opening</span>
+            <div class="field"><span>Chapter heading</span>
               <div class="seg" data-key="chapterStyle"><button type="button" data-v="classic">Classic</button><button type="button" data-v="numeral">Big numeral</button><button type="button" data-v="minimal">Minimal</button><button type="button" data-v="ornament">Ornament</button></div></div>
+            <div class="field"><span>Chapter numbers</span>
               <div class="seg" data-key="numerals"><button type="button" data-v="roman">I II</button><button type="button" data-v="words">One Two</button><button type="button" data-v="arabic">1 2</button><button type="button" data-v="none">None</button></div></div>
             <div class="field"><span>Scene breaks</span>
               <div class="seg" data-key="ornament"><button type="button" data-v="asterism">⁂</button><button type="button" data-v="dinkus">* * *</button><button type="button" data-v="hedera">❦</button><button type="button" data-v="lotus">Lotus</button><button type="button" data-v="rule">Rule</button></div></div>
@@ -390,9 +391,9 @@
     </div>
 
     <nav class="wk-nav" aria-label="Studio">
-      <button type="button" data-pane="manuscript" data-tab="pictures">Book</button>
+      <button type="button" data-pane="manuscript" data-tab="pictures">Pictures</button>
       <button type="button" data-pane="manuscript" data-tab="text">Text</button>
-      <button type="button" data-pane="book">Preview</button>
+      <button type="button" data-pane="book">Book</button>
       <button type="button" data-pane="design">Design</button>
     </nav>
   </div>

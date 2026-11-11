@@ -323,3 +323,7 @@ details.in-why[open] summary{margin-bottom:8px}
   .pe-2{grid-template-columns:1fr}
 }
 @media (prefers-reduced-motion:reduce){.pe-art{cursor:default}}
+
+/* Choosing new words for a picture: a banner that stays until they are chosen or it is cancelled. */
+.mk-arm{position:absolute;left:50%;top:14px;z-index:6;transform:translateX(-50%);display:flex;align-items:center;gap:12px;max-width:calc(100% - 32px);padding:8px 8px 8px 16px;border-radius:12px;background:var(--raised);color:var(--ink);box-shadow:var(--lift),inset 0 0 0 1px color-mix(in srgb,var(--accent) 50%,transparent);font-size:13.5px;animation:pop .2s var(--e)}
+.mk-arm[hidden]{display:none}

@@ -134,6 +134,12 @@ export function initMaker(p: Pristine): void {
   $("mkRailAi").addEventListener("click", () => $("mkAiOpen").click());
   $("mkRailHide").addEventListener("click", () => setPanel($("mkWork").dataset.left === "closed"));
   setPanel(load<string>(PANEL_KEY) !== "closed");
+  hooks.openPanel = () => { if ($("mkWork").dataset.left === "closed") setPanel(true); };
+  // Shortcuts say Ctrl where there is no ⌘ key.
+  if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) {
+    document.querySelectorAll<HTMLElement>("#maker kbd").forEach((k) => { k.textContent = (k.textContent || "").replace("⌘", "Ctrl "); });
+    document.querySelectorAll<HTMLElement>("#maker [title*='⌘']").forEach((el) => { el.title = el.title.replace("⌘", "Ctrl+"); });
+  }
   $("mkUndoBtn").addEventListener("click", undo);
   $<HTMLInputElement>("mkZoom").addEventListener("input", (e) => setZoom(+(e.target as HTMLInputElement).value));
   $("mkNew").addEventListener("click", async () => { await newBook(); showLanding(); });

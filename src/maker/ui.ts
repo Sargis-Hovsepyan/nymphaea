@@ -21,7 +21,11 @@ export function toast(text: string, warn = false, action?: ToastAction): void {
   }
   box.appendChild(t);
   while (box.childElementCount > 3) box.firstElementChild!.remove();
-  setTimeout(() => t.remove(), action ? 8000 : warn ? 6500 : 3600);
+  // A toast with an action waits while the pointer or the keyboard is on it.
+  let left = action ? 8000 : warn ? 6500 : 3600, since = Date.now(), timer = window.setTimeout(() => t.remove(), left);
+  const hold = () => { clearTimeout(timer); left -= Date.now() - since; };
+  const go = () => { since = Date.now(); timer = window.setTimeout(() => t.remove(), Math.max(1500, left)); };
+  if (action) { t.addEventListener("pointerenter", hold); t.addEventListener("pointerleave", go); t.addEventListener("focusin", hold); t.addEventListener("focusout", go); }
 }
 
 let savedTimer = 0, liveTimer = 0, wasTyping = false;
