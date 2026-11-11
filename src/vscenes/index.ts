@@ -1,6 +1,7 @@
 // Vector scenes (320×200 SVG). Each scene acts out one story beat:
 //   build(id) → SVG markup whose shapes carry a ROLE class (pool, edge, board, far, key, lit, beam, line, fig, bg2)
-//   update(a, t, tm) → moves the few parts that matter. t = the beat (0..1, from scroll), tm = seconds.
+//   update(a, t, tm, p?) → moves the few parts that matter. t = the beat (0..1, from scroll), tm = seconds,
+//   p = seconds since the picture began to play what happens (composed scenes; none means its still).
 // The style (Ink / Cut paper / Glow) is pure CSS on those roles, so one scene serves every look.
 import { ease, lerp } from "../scenes/helpers";
 import { MORE } from "./more";
@@ -12,7 +13,7 @@ export interface VApi {
 }
 export interface VScene {
   build(id: string): string;
-  update(a: VApi, t: number, tm: number): void;
+  update(a: VApi, t: number, tm: number, p?: number): void;
 }
 
 const tf = (el: SVGElement, v: string) => el.setAttribute("transform", v);

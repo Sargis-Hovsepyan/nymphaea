@@ -12,34 +12,8 @@ import { parseText } from "../src/parse";
 import { autoStage } from "../src/stage/auto";
 import { captionIsQuoted, guardScenes } from "../src/stage/guard";
 import { isScene } from "../src/stage/keywords";
-import type { VApi } from "../src/vscenes";
 
-function fakeApi(markup: string, problems: string[]): VApi {
-  const els: Record<string, SVGElement> = {};
-  const bad = (v: string) => /NaN|Infinity|undefined/.test(v);
-  return {
-    a(k) {
-      if (!markup.includes('data-a="' + k + '"')) problems.push("missing part " + k);
-      return els[k] || (els[k] = {
-        setAttribute: (n: string, v: string) => { if (bad(String(v))) problems.push(k + "." + n + " = " + v); },
-        style: new Proxy({}, { set: (_t, p, v) => { if (bad(String(v))) problems.push(k + ".style." + String(p) + " = " + v); return true; } }),
-      } as unknown as SVGElement);
-    },
-    light(v) { if (!Number.isFinite(v)) problems.push("light " + v); },
-  };
-}
-
-function exercise(id: string): string[] {
-  const vs = vscene(id), markup = vs.build("t");
-  const problems: string[] = [];
-  if (/NaN|Infinity|undefined/.test(markup)) problems.push("markup has NaN");
-  const keys = Array.from(markup.matchAll(/data-a="([^"]+)"/g)).map((m) => m[1]);
-  const dup = keys.filter((k, i) => keys.indexOf(k) !== i);
-  if (dup.length) problems.push("duplicate parts " + dup.join(","));
-  const api = fakeApi(markup, problems);
-  for (let i = 0; i <= 12; i++) [0, 3.3, 900].forEach((tm) => vs.update(api, i / 12, tm));
-  return problems;
-}
+import { exercise } from "./support/exercise";
 
 const base: Spec = blank(42);
 
@@ -281,7 +255,10 @@ describe("motion read from the text", () => {
     expect(fx("Smoke curled from the chimney of the cottage at dusk.")).toContain("rise");
     expect(fx("A shooting star fell across the night sky above the field.")).toContain("star");
     expect(fx("A shooting star fell across the night sky above the field.")).not.toContain("fall");
-    expect(fx("The gulls flew off the harbour wall as the waves crashed in.")).toEqual(expect.arrayContaining(["fly", "swell"]));
+    // The gulls flying off are the birds in the picture acting it out, not a separate flock.
+    const gulls = readSpec("The gulls flew off the harbour wall as the waves crashed in.");
+    expect(gulls.fx).toContain("swell");
+    expect(gulls.acts?.some((a) => a.kind === "depart" && gulls.props[a.by - 5] === "bird")).toBe(true);
     expect(fx("The candle flickered in the kitchen.")).toContain("flicker");
     expect(fx("In the garden the petals were falling.")).toContain("fall");
   });

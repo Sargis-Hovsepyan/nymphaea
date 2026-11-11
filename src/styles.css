@@ -136,6 +136,7 @@ body.layout-cards .text .ch{min-height:100svh;justify-content:center;margin:0;sc
 /* figures */
 figure{margin:2.8em auto 3em;width:min(var(--fig),78%);display:flex;flex-direction:column;gap:10px;position:relative;z-index:1}
 .art{position:relative}
+.art.plays{cursor:pointer}
 .art canvas{display:block;width:100%;height:auto;aspect-ratio:8/5;background:var(--lo)}
 body.st-flow .art canvas{background:transparent}
 .art canvas.px{image-rendering:pixelated}

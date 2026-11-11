@@ -8,6 +8,7 @@
 import { rng } from "./noise";
 import { statureScale } from "./figure";
 import { ON_WATER, OUTDOOR_ONLY, SMALL, isIndoor, isWater, type Place, type Pose, type Prop, type Shot, type Spec } from "./spec";
+import { ALL, PAIR, PAIR_KINDS, figOf, thingOf, type Act } from "./acts";
 
 /** Native size of each drawing at scale 1 (compose/things.ts) and its real height in figure units (an adult is 1). */
 export const SIZE: Record<Prop, { w: number; h: number; real: number }> = {
@@ -25,6 +26,19 @@ export const SIZE: Record<Prop, { w: number; h: number; real: number }> = {
 
 /** Things a figure can hold, the most telling first. */
 export const HELD: readonly Prop[] = ["umbrella", "candle", "letter", "book", "cup", "glass"];
+/** Acts done with something already in the hand, and acts that pick something up. */
+const WITH_HELD = new Set(["put", "drop", "throw", "raise", "drink", "read", "give"]);
+/** Acts a hand does to a thing where it stands: the figure is placed within reach of it. */
+const AT_HAND = new Set(["handle", "open", "close", "light", "snuff", "knock", "take", "point", "look"]);
+/** Where a hand acts on each thing, in its own drawing units (x toward its facing side). */
+export const ANCHOR: Partial<Record<Prop, [number, number]>> = {
+  door: [8, -22], gate: [0, -24], candle: [0, -15], fire: [0, -8], lamp: [0, -52], cup: [0, -7], glass: [0, -7], letter: [0, -2], book: [0, -3],
+  clock: [0, -9], umbrella: [0, -22], suitcase: [0, -18], piano: [0, -22], table: [0, -27], bench: [0, -11], chair: [0, -22], bed: [0, -14],
+  tree: [0, -34], horse: [0, -24], dog: [0, -10], cat: [0, -8], bicycle: [0, -20], flower: [0, -14], mirror: [0, -19], shelf: [0, -40],
+  fence: [0, -11], well: [0, -14], grave: [0, -16], rock: [0, -12], window: [0, -32], house: [0, -10], tent: [0, -14],
+};
+/** The acts of figure i (its own, everyone's, the pair's). */
+export const actsOf = (acts: readonly Act[] | undefined, i: number): Act[] => (acts || []).filter((a) => a.by === i || a.by === ALL || (a.by === PAIR && i < 2) || ((a.kind === "give" || a.kind === "greet") && figOf(a.to) === i));
 
 /** Adult figure: native 100 tall, about 26 wide. */
 export const FIG_H = 100, FIG_W = 26;
@@ -52,6 +66,8 @@ export interface Item {
   hold?: Prop;
   /** Sitting on something (not the ground). */
   seat?: boolean;
+  /** Things this figure takes into its hand during the picture (drawn there, hidden until then). */
+  later?: Prop[];
 }
 
 export interface Layout {
@@ -84,19 +100,23 @@ export function camera(s: Spec): Cam {
   const indoor = isIndoor(s.place);
   if (s.shot === "mid") return { shot: "mid", hy: 92 + jit * 0.6, ratio: 1 };
   if (s.shot === "close") return { shot: "close", hy: 88 + jit, ratio: 1.5 };
+  if (staged(s)) return { shot: "wide", hy: 112 + jit * 0.5, ratio: 0.8 };
   return { shot: "wide", hy: BASE_HY[s.place] + jit, ratio: indoor ? 1 : s.place === "road" ? 0.8 : 0.62 };
 }
 
 /** The effective shot: a close shot needs a thing to look at, a mid shot works best with people. */
 export function effectiveShot(s: Spec): Shot {
-  if (s.place === "inner") return "wide";
+  if (s.place === "inner" && !staged(s)) return "wide";
   if (s.shot === "close" && !s.props.some((p) => keep(s.place, p))) return s.who ? "mid" : "wide";
   return s.shot;
 }
 
-/** Does this thing belong in this place? */
-export function keep(place: Place, p: Prop): boolean {
-  if (place === "inner") return false;
+/** A picture with acts and no place is played on a bare stage. */
+export const staged = (s: Pick<Spec, "place" | "acts">): boolean => s.place === "inner" && !!s.acts && s.acts.length > 0;
+
+/** Does this thing belong in this place? On the bare stage anything does, except what needs water. */
+export function keep(place: Place, p: Prop, stage = false): boolean {
+  if (place === "inner") return stage && !ON_WATER.includes(p) && p !== "bridge";
   const indoor = isIndoor(place);
   if (indoor) return !OUTDOOR_ONLY.includes(p) && p !== "train";
   if (ON_WATER.includes(p)) return isWater(place);
@@ -108,6 +128,7 @@ export function keep(place: Place, p: Prop): boolean {
 
 function bands(place: Place, cam: Cam, wantShore: boolean): { land: [number, number][]; water: [number, number] | null; wall: number } {
   const hy = cam.hy, H = 200, d = (k: number) => hy + (H - hy) * k;
+  if (place === "inner") return { land: [[hy + 2, H - 2]], water: null, wall: 0 };
   if (isIndoor(place)) { const wall = d(cam.shot === "wide" ? 0.46 : 0.34); return { land: [[wall + 4, H - 2]], water: null, wall }; }
   switch (place) {
     case "sea": { const sh = wantShore ? d(cam.shot === "wide" ? 0.7 : 0.55) : H + 6; return { land: wantShore ? [[sh + 3, H - 2]] : [], water: [hy, sh], wall: 0 }; }
@@ -130,7 +151,8 @@ export function layout(spec: Spec): Layout {
   const s: Spec = { ...spec, shot };
   const cam = camera(s), indoor = isIndoor(s.place);
   const rL = rng(s.seed + 7), rM = rng(s.moment * 131 + s.seed + 3);
-  const kept = s.props.filter((p) => keep(s.place, p));
+  const stage = staged(s);
+  const kept = s.props.filter((p) => keep(s.place, p, stage));
   const dropped = s.props.filter((p) => !kept.includes(p));
   const { land, water, wall } = bands(s.place, cam, s.who > 0 || kept.some((p) => !ON_WATER.includes(p) && p !== "bird"));
   // The light: a window on the back wall indoors, the sun or moon outside; the focus on the other third.
@@ -144,7 +166,7 @@ export function layout(spec: Spec): Layout {
   const items: Item[] = [];
   const out: Layout = { cam, indoor, land, water, wall, light, focusX, surface: 150, items, dropped };
 
-  if (s.place === "inner") return out;
+  if (s.place === "inner" && !stage) return out;
 
   /* close shot: a still life of the main thing on a surface, the place soft behind it */
   if (shot === "close") {
@@ -186,10 +208,26 @@ export function layout(spec: Spec): Layout {
   /* what the figure holds: an umbrella always, a light, a letter, a book or a cup when the words
      say it is held, or when there is nothing to set it on */
   let held: Prop | null = null;
+  const acts = s.acts || [];
+  const taken = new Set(acts.filter((a) => a.kind === "take").map((a) => s.props[thingOf(a.to)]).filter(Boolean));
   if (figs.length) {
     const surface = kept.some((p) => p === "table" || p === "bench" || p === "rock") || indoor;
-    const hands = HELD.filter((p) => kept.includes(p) && (p === "umbrella" || s.pose === "reach" || !surface));
-    if (hands.length) { held = hands[0]; const f0 = figs[0]; f0.hold = held; if (f0.pose === "stand" || f0.pose === "look") f0.pose = "reach"; }
+    // What the acts need in a hand: the cup that is drunk from, the letter that is read or given.
+    const needs = (i: number) => actsOf(acts, i).filter((a) => a.by !== PAIR && WITH_HELD.has(a.kind) && figOf(a.to) !== i);
+    figs.forEach((fg, i) => {
+      const want = needs(i);
+      if (!want.length) return;
+      const named = want.map((a) => s.props[thingOf(a.to)]).find((p) => p && HELD.includes(p) && kept.includes(p) && !taken.has(p));
+      const p = named || HELD.find((q) => kept.includes(q) && !taken.has(q) && q !== held);
+      if (p) { fg.hold = p; if (i === 0) held = p; }
+    });
+    const hands = HELD.filter((p) => kept.includes(p) && !taken.has(p) && (p === "umbrella" || s.pose === "reach" || !surface));
+    if (!held && hands.length && !figs[0].hold) { held = hands[0]; const f0 = figs[0]; f0.hold = held; if (f0.pose === "stand" || f0.pose === "look") f0.pose = "reach"; }
+    // Things taken, and things handed over, are drawn in the hand that ends up with them.
+    acts.forEach((a) => {
+      if (a.kind === "take") { const p = s.props[thingOf(a.to)]; const tg = a.by <= 2 ? figs[a.by] : figs[0]; if (p && tg && HELD.concat(["suitcase", "flower"] as Prop[]).includes(p)) (tg.later = tg.later || []).push(p); }
+      if (a.kind === "give") { const to = figs[figOf(a.to)], from = figs[a.by]; if (to && from && from.hold) (to.later = to.later || []).push(from.hold); }
+    });
   }
 
   /* things */
@@ -288,10 +326,49 @@ export function layout(spec: Spec): Layout {
       fg.x = 160 + (focusX > 160 ? 40 : -40) + (k - (figs.length - 1) / 2) * gap; fg.y = bridge.y - 16 * bridge.s; fg.on = "bridge";
     }
   });
+  if (acts.length) block(figs, items, acts, s, px, near, shot);
   items.push(...figs);
   // Far things first.
   items.sort((a, b) => order(a) - order(b));
   return out;
+}
+
+/**
+ * Stage the figures for what they do: a figure whose first act is with its hands on a thing stands
+ * within reach of it, facing it; two who will meet stand apart, facing each other. Figures already
+ * seated, in a boat or on a bridge stay where the words put them.
+ */
+function block(figs: Item[], items: Item[], acts: readonly Act[], s: Spec, px: (y: number, r: number) => number, near: [number, number] | null, shot: Shot): void {
+  figs.forEach((fg, i) => {
+    if (fg.on !== "ground") return;
+    const mine = actsOf(acts, i);
+    const first = mine.find((a) => a.kind !== "turn");
+    if (!first) return;
+    const ti = thingOf(first.to);
+    const th = ti >= 0 ? items.find((q) => q.kind === s.props[ti]) : undefined;
+    if (th && AT_HAND.has(first.kind) && th.on !== "sky") {
+      // Stand at the thing's depth (in front of a wall or a table), an arm's length to its side.
+      const y = th.on === "wall" ? Math.max(fg.y, (near ? near[0] : th.y) + 4) : th.on === "table" || th.on === "bench" ? (items.find((q) => q.kind === "table" || q.kind === "bench")?.y ?? th.y) + 3 : th.on === "ceiling" ? fg.y : th.y + 2;
+      const sc = Math.max(0.2, px(y, 1) / FIG_H), side = th.x > 160 ? -1 : 1;
+      const reach = (first.kind === "look" || first.kind === "point" ? 60 : 24) * sc + th.w * 0.3;
+      fg.s = sc; fg.w = FIG_W * sc; fg.h = FIG_H * sc; fg.y = y;
+      fg.x = Math.max(14, Math.min(306, th.x + side * reach)); fg.face = (th.x > fg.x ? 1 : -1);
+      return;
+    }
+    if (first.by === PAIR && (PAIR_KINDS as readonly string[]).includes(first.kind) && i < 2 && figs[1 - i]) {
+      // Two who will meet: apart, facing each other, so the picture can bring them together.
+      const gap = FIG_W * fg.s * (shot === "mid" ? 2.4 : 3.2), mid = (figs[0].x + figs[1].x) / 2;
+      fg.x = mid + (i === 0 ? -gap / 2 : gap / 2); fg.face = i === 0 ? 1 : -1;
+      return;
+    }
+    if (first.kind === "give" || first.kind === "greet") {
+      // Giver and taker an arm's length apart, facing each other.
+      const oi = figOf(first.to) >= 0 && figOf(first.to) !== i ? figOf(first.to) : first.by, other = figs[oi];
+      if (!other || other === fg) return;
+      const mid = (fg.x + other.x) / 2, gap = FIG_W * fg.s * 1.9, left = i < oi;
+      fg.x = mid + (left ? -gap / 2 : gap / 2); fg.face = left ? 1 : -1;
+    }
+  });
 }
 
 function order(it: Item): number {

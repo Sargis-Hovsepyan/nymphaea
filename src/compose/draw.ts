@@ -19,14 +19,17 @@
 import { ease, lerp } from "../scenes/helpers";
 import { P, circle, defs, ellipse, f, grain, pool, rect, seg } from "../vscenes/shapes";
 import type { VScene } from "../vscenes";
-import { GROUND_SIT_DROP, HAND, figureSvg, holdAngle, poseFrame } from "./figure";
-import { SIZE, effectiveShot, layout, type Item } from "./layout";
+import { HAND, STAND, figureSvg, leanOf, mixJ, restJoints, setJoints } from "./figure";
+import { SIZE, effectiveShot, layout, staged, type Item } from "./layout";
+import { SKY } from "./acts";
+import { aimer, fallAt, figSegs, figurePlayer, ringAt, shownAt, thingEvents, travelAt } from "./perform";
+import { looped, prog, timeline, type Seg, type Timeline } from "./timeline";
 import { fbm, rng, smooth, type Rng } from "./noise";
 import { backdrop } from "./places";
 import { group, op, path, shadow, tf, thing, type Ctx, type Mover } from "./things";
 import type { Spec } from "./spec";
 
-interface Plan { markup: (id: string) => string; movers: Mover[] }
+interface Plan { markup: (id: string) => string; movers: Mover[]; tl: Timeline; clock: { dip: number } }
 
 function cloudShape(r: Rng, cx: number, cy: number, w: number): string {
   // The base is an ellipse, wound like the puffs: a rectangle winds the other way and cuts holes where they overlap.
@@ -41,6 +44,11 @@ function plan(spec: Spec): Plan {
   const fxs = spec.fx || [];
   const s: Spec = { ...spec, shot: effectiveShot(spec), sky: fxs.includes("sway") && spec.sky === "clear" ? "wind" : spec.sky, a: fxs.includes("sway") ? Math.max(spec.a, 0.8) : spec.a };
   const L = layout(s);
+  const tl = timeline(s.acts || []), clock = { dip: 1 };
+  const skySegs = tl.segs.filter((g) => g.act.by === SKY);
+  const skySeg = (...k: string[]) => skySegs.find((g) => k.includes(g.act.kind));
+  /** How much of a weather there is now: 1 with no act, rising as it begins, falling as it stops. */
+  const amount = (kind: string, p: number) => { const g = skySegs.find((x) => x.act.kind === kind); if (!g) return 1; const u = ease(prog(g, p)); return g.act.away ? 1 - u : u; };
   const rL = rng(s.seed + 101), rM = rng(s.moment * 31 + s.seed + 5);
   const night = s.time === "night", low = s.time === "dawn" || s.time === "dusk";
   const indoor = L.indoor, hy = L.cam.hy;
@@ -50,7 +58,7 @@ function plan(spec: Spec): Plan {
   const parts: ((id: string) => string)[] = [];
   const add = (fn: string | ((id: string) => string)) => parts.push(typeof fn === "string" ? () => fn : fn);
 
-  if (s.place === "inner") return inner(s, rM);
+  if (s.place === "inner" && !staged(s)) return { ...inner(s, rM), tl, clock };
 
   /* the setting, built first so the window is known */
   const bd = backdrop(s, L, "§", c, rL);
@@ -59,15 +67,20 @@ function plan(spec: Spec): Plan {
   const box = win ? { x: win.x, y: win.y, w: win.w, h: win.h } : { x: 0, y: 0, w: 320, h: hy };
 
   /* sky */
-  if (!indoor) add((id) => path("sky", rect(-5, -5, 330, hy + 10), "", 'fill="url(#sk' + id + ')" data-h="' + s.time + '" data-y="' + f(hy) + '"'));
+  if (staged(s)) {
+    // The bare stage: a soft backdrop in the hour's colour, a floor, a horizon line.
+    add((id) => path("sky", rect(-5, -5, 330, 210), "", 'fill="url(#sk' + id + ')" data-h="' + s.time + '" data-y="' + f(hy) + '" opacity=".55"'));
+    add(path("bg2", rect(-5, hy, 330, 210 - hy), "", 'opacity=".55"') + path("line", "M-5," + f(hy) + " H325", "", 'opacity=".5"'));
+  } else if (!indoor) add((id) => path("sky", rect(-5, -5, 330, hy + 10), "", 'fill="url(#sk' + id + ')" data-h="' + s.time + '" data-y="' + f(hy) + '"'));
   else add((id) => idFix(bd.back, id));
   if (indoor) add(path("sky", "M0,0", "", 'data-h="' + s.time + '" data-y="' + f(hy) + '"'));
   add((id) => pool(id, Math.round(L.light.x), Math.round(L.light.y), indoor ? 80 : 70, "pl"));
-  if (night && !dim) {
+  const starAct = skySeg("stars");
+  if ((night && !dim) || (starAct && !indoor)) {
     let st = "";
     for (let i = 0; i < (indoor ? 10 : 50); i++) st += circle(box.x + rL() * box.w, box.y + rL() * box.h * 0.8, rL() < 0.15 ? 1.1 : 0.55) + " ";
     add(path("lit", st, "st"));
-    mv.push((a, _t, tm) => op(a, "st", 0.65 + 0.35 * Math.sin(tm * 1.7)));
+    mv.push((a, _t, tm, _e, p) => op(a, "st", (0.65 + 0.35 * Math.sin(tm * 1.7)) * (starAct ? ease(prog(starAct, p)) : 1)));
   }
   /* sun or moon: they share the light's place, rising at dawn and night, setting at dusk */
   const cr = indoor ? Math.max(4, box.w * 0.1) : night ? 10 : low ? 15 : 12;
@@ -76,22 +89,33 @@ function plan(spec: Spec): Plan {
   add(group(path("lit", circle(0, 0, cr * 2.3), "", 'opacity=".14"') + path("lit", circle(0, 0, cr * 1.5), "", 'opacity=".18"') + moon, "cel"));
   const cx0 = indoor ? box.x + box.w * 0.3 : L.light.x - 36, cx1 = indoor ? box.x + box.w * 0.6 : L.light.x;
   const cyLow = indoor ? box.y + box.h - cr - 2 : hy + cr * 0.4, cyHigh = indoor ? box.y + box.h * 0.32 : L.light.y;
-  mv.push((a, t) => {
-    const e = ease(t);
+  // The sun or moon that rises or sets in the words follows the act, not the beat.
+  const celAct = skySeg("sunrise", "sunset", "moonrise", "daybreak", "nightfall");
+  const sinks = celAct && (celAct.act.kind === "sunset" || celAct.act.kind === "nightfall");
+  mv.push((a, t, _tm, _e, p) => {
+    const e = celAct ? ease(prog(celAct, p)) : ease(t);
+    const below = cyLow + cr * 3.2;
     const k = s.time === "dusk" ? 1 - e * 0.8 : s.time === "day" ? 0.85 + 0.15 * Math.sin(e * Math.PI) : 0.25 + e * 0.75;
-    const x = lerp(cx0, cx1, e), y = lerp(cyLow, cyHigh, k);
+    const x = lerp(cx0, cx1, e), y = celAct ? (sinks ? lerp(cyHigh, below, e) : lerp(below, cyHigh, e)) : lerp(cyLow, cyHigh, k);
     tf(a, "cel", "translate(" + f(x) + "," + f(y) + ")");
     op(a, "cel", dim ? 0.3 : 1);
     if (!indoor) { a.a("pl").setAttribute("cx", f(x)); a.a("pl").setAttribute("cy", f(y)); }
   });
   /* clouds: weather sets how many, the mood how fast they go */
-  const nCl = s.sky === "storm" || s.sky === "rain" ? 6 : s.sky === "cloud" ? 5 : s.sky === "snow" || s.sky === "wind" ? 3 : s.sky === "fog" ? 0 : s.v < -0.3 ? 2 : rL() < 0.4 ? 1 + Math.floor(rL() * 2) : 0;
+  const cloudAct = skySeg("cloud", "storm", "rain");
+  const nCl0 = s.sky === "storm" || s.sky === "rain" ? 6 : s.sky === "cloud" ? 5 : s.sky === "snow" || s.sky === "wind" ? 3 : s.sky === "fog" ? 0 : s.v < -0.3 ? 2 : rL() < 0.4 ? 1 + Math.floor(rL() * 2) : 0;
+  const nCl = cloudAct ? Math.max(nCl0, 4) : nCl0;
   if (nCl && !indoor) {
     let cl = "";
     for (let k = 0; k < nCl; k++) cl += cloudShape(rL, box.x + rL() * (box.w + 60) - 30, box.y + 8 + rL() * Math.min(40, box.h * 0.4), (indoor ? 0.4 : 1) * (30 + rL() * 40)) + " ";
     add(group(path("haze", cl, "", s.sky === "storm" || s.sky === "rain" ? 'data-dark="1"' : ""), "cl"));
     const drift = 3 + s.a * 14 + (s.sky === "wind" || s.sky === "storm" ? 10 : 0);
-    mv.push((a, _t, tm) => tf(a, "cl", "translate(" + f(((tm * drift) % (box.w + 80)) - 40) + ",0)"));
+    mv.push((a, _t, tm, _e, p) => {
+      // Clouds that gather slide in from the side; clouds that part slide away and thin.
+      const k = cloudAct ? amount(cloudAct.act.kind, p) : 1;
+      tf(a, "cl", "translate(" + f(((tm * drift) % (box.w + 80)) - 40 - (1 - k) * 160) + ",0)");
+      if (cloudAct) op(a, "cl", k);
+    });
   }
 
   if (indoor && win) {
@@ -108,36 +132,58 @@ function plan(spec: Spec): Plan {
 
   /* things and people, far first */
   const placed = L.items;
+  const aim = aimer(L.items, s.props);
   placed.forEach((it, n) => {
     if (it.kind === "fig") {
       const k = "fg" + it.i, b = s.cast[it.i] ?? 0, pose = it.pose || "stand";
-      const ph = it.i * 1.3 + rM() * 2, seatOnGround = pose === "sit" && !it.seat;
-      // What the figure holds, drawn in its hand at its real size, kept upright as the arm lifts it.
+      const ph = it.i * 1.3 + rM() * 2;
+      const segs = figSegs(tl, it.i);
+      // What the figure holds, or will: each in its own group in the hand, shown when it is held, kept upright.
+      const heldList = [it.hold, ...(it.later || [])].filter((p, q, all): p is NonNullable<typeof p> => !!p && all.indexOf(p) === q);
       let held = "";
-      if (it.hold) {
-        const p = it.hold, z = SIZE[p], sc = p === "letter" || p === "book" ? 14 / z.w : z.real * 100 / z.h;
-        const hb = thing(p, 90 + n, "§", { ...c, r: rng(s.seed * 17 + n) });
+      heldList.forEach((p, hn) => {
+        const z = SIZE[p], sc = p === "letter" || p === "book" ? 14 / z.w : z.real * 100 / z.h;
+        const hb = thing(p, 90 + n * 4 + hn, "§", { ...c, r: rng(s.seed * 17 + n + hn) });
         mv.push(...hb.movers);
-        held = group(hb.svg, "", "translate(" + HAND.x + "," + HAND.y + ") rotate(" + f(-holdAngle(p)) + ") scale(" + f(sc) + ") translate(0," + (p === "umbrella" ? 14 : 1) + ")");
-      }
-      const svg = figureSvg(k, b, pose, it.face, !!it.seat, held);
+        held += group(group(hb.svg, "", "scale(" + f(sc) + ") translate(0," + (p === "umbrella" ? 14 : 1) + ")"), k + "o" + hn, "translate(" + HAND.x + "," + HAND.y + ")", it.hold === p ? "" : 'style="opacity:0"');
+      });
+      const svg = figureSvg(k, b, held);
       const big = it.s > 1.6;
-      add((id) => idFix((big ? "" : group(shadow(26, L.light.x - it.x, 60), "", "translate(" + f(it.x) + "," + f(it.y) + ") scale(" + f(it.s) + ")")) + svg, id));
-      const lie = pose === "lie";
-      const walking = pose === "walk" || pose === "run";
+      add((id) => idFix((big ? "" : group(shadow(26, L.light.x - it.x, 60), k + "s", "translate(" + f(it.x) + "," + f(it.y) + ") scale(" + f(it.s) + ")")) + svg, id));
+      const walking = !segs.length && (pose === "walk" || pose === "run");
       const road = walking && s.place === "road";
-      mv.push((a, t, tm, e) => {
-        let x = it.x, y = it.y + (seatOnGround ? GROUND_SIT_DROP * it.s : 0), sc = it.s;
-        if (road) { const yy = lerp(it.y, hy + (it.y - hy) * 0.35, e); sc = it.s * (yy - hy) / Math.max(1, it.y - hy); x = lerp(it.x, 160, e * 0.5); y = yy; }
-        else if (walking) x = Math.max(-10, Math.min(330, it.x + it.face * lerp(-34, 10, e) * it.s * (pose === "run" ? 1.6 : 1)));
-        else if (!lie) x += Math.sin(tm * 0.5 + ph) * 0.3;
-        tf(a, k, "translate(" + f(x) + "," + f(y) + ") scale(" + f(sc) + ")" + (lie ? " translate(0,-11) rotate(" + (it.face > 0 ? -90 : 90) + ")" : ""));
-        poseFrame(a, k, pose, b, walking ? t : Math.max(t, 0.5), tm, ph, 1, it.hold || "");
+      const rest = walking ? STAND : restJoints(pose, !!it.seat);
+      const play = figurePlayer(it, b, segs, L.items, aim, rest, it.hold, it.later || []);
+      const armPose = !segs.length && (pose === "reach" || pose === "look" || pose === "pair");
+      // In a boat that sails: the figure goes with it.
+      const boatIt = it.on === "boat" ? placed.find((q) => q.kind === "boat" && q.on === "water") : undefined;
+      const boatEv = boatIt ? thingEvents(tl, boatIt.i) : [];
+      mv.push((a, _t, tm, e, p) => {
+        const fr = play(p, tm, ph);
+        let x = fr.x, y = fr.y, sc = fr.s, j = fr.j;
+        if (!segs.length) {
+          // No acts: the old pictures, but the walk never freezes: legs on the clock, a little way with the beat.
+          if (road) { const yy = lerp(it.y, hy + (it.y - hy) * 0.35, e); sc = it.s * (yy - hy) / Math.max(1, it.y - hy); x = lerp(it.x, 160, e * 0.5); y = yy; }
+          else if (walking) x = Math.max(-10, Math.min(330, it.x + it.face * lerp(-34, 10, e) * it.s * (pose === "run" ? 1.6 : 1)));
+          else if (pose !== "lie") x += Math.sin(tm * 0.5 + ph) * 0.3;
+          if (armPose) j = mixJ(STAND, j, Math.max(e, 0.5));
+        }
+        if (boatIt) { const v = travelAt(boatEv, p); if (v != null) x += v * (330 + boatIt.w) * boatIt.face; }
+        const face = fr.face || 1e-3, rot = j.rot ? -Math.sign(face) * j.rot : 0;
+        tf(a, k, "translate(" + f(x) + "," + f(y) + ") scale(" + f(sc) + ")" + (j.drop || rot ? " translate(0," + f(j.drop) + ") rotate(" + f(rot) + ")" : ""));
+        if (segs.length) op(a, k, fr.alpha);
+        setJoints(a, k, b, j, face);
+        heldList.forEach((p, hn) => {
+          tf(a, k + "o" + hn, "translate(" + HAND.x + "," + HAND.y + ") rotate(" + f(-(j.sh2 + j.el2 + leanOf(b, j)) - rot * Math.sign(face)) + ")");
+          op(a, k + "o" + hn, fr.hold[p] ?? (it.hold === p ? 1 : 0));
+        });
+        if (!big) { tf(a, k + "s", "translate(" + f(x) + "," + f(segs.length ? fr.y - (fr.y - it.y) : y) + ") scale(" + f(sc) + ")"); if (segs.length) op(a, k + "s", fr.alpha * (j.rot ? 0.6 : 1)); }
       });
       return;
     }
     const seed = s.seed * 31 + n * 7 + it.i;
-    const built = thing(it.kind, n, "§", { ...c, r: rng(seed) });
+    const ev = it.i >= 0 ? thingEvents(tl, it.i) : [];
+    const built = thing(it.kind, n, "§", { ...c, r: rng(seed), ev });
     const flip = it.face < 0 && it.kind !== "car" && it.kind !== "train" && it.kind !== "bridge" && it.kind !== "fence" ? " scale(-1,1)" : "";
     const sh = it.on === "ground" && it.kind !== "fence" && it.kind !== "bridge" && it.kind !== "train" ? shadow(SIZE[it.kind].w, L.light.x - it.x, SIZE[it.kind].h) : "";
     if (it.kind === "fire" && indoor) {
@@ -155,8 +201,23 @@ function plan(spec: Spec): Plan {
       add((id) => path("sky", rect(it.x - it.w / 2, it.y - it.h, it.w, it.h), "", 'fill="url(#sk' + id + ')"') + path("edge", rect(it.x - it.w / 2 - 3, it.y - it.h - 3, it.w + 6, 3) + " " + rect(it.x - it.w / 2 - 3, it.y, it.w + 6, 3) + " " + rect(it.x - 1, it.y - it.h, 2, it.h) + " " + rect(it.x - it.w / 2 - 3, it.y - it.h, 3, it.h) + " " + rect(it.x + it.w / 2, it.y - it.h, 3, it.h)));
       return;
     }
-    add((id) => group(idFix(sh, id) + idFix(built.svg, id), "", "translate(" + f(it.x) + "," + f(it.y) + ") scale(" + f(it.s) + ")" + flip));
+    const moving = ev.length > 0 && it.on !== "sky";
+    const tr0 = "translate(" + f(it.x) + "," + f(it.y) + ") scale(" + f(it.s) + ")" + flip;
+    add((id) => group(idFix(sh, id) + idFix(built.svg, id), moving ? "it" + n : "", tr0));
     mv.push(...built.movers);
+    if (moving) {
+      // A thing that arrives, leaves, falls, rings or is taken: the whole thing moves.
+      const under = it.on === "table" || it.on === "bench" ? placed.find((q) => q.kind === (it.on === "table" ? "table" : "bench")) : undefined;
+      const drop = under ? under.y - it.y : 0;
+      const dir = it.kind === "car" || it.kind === "train" ? 1 : it.face;
+      const dist = 330 + it.w;
+      mv.push((a, _t, tm, _e, p) => {
+        const tv = travelAt(ev, p), fa = fallAt(ev, p), rg = ringAt(ev, p, tm);
+        const dx = tv == null ? 0 : tv * dist * dir, dy = drop * fa;
+        tf(a, "it" + n, "translate(" + f(it.x + dx) + "," + f(it.y + dy) + ") scale(" + f(it.s) + ")" + flip + (fa || rg ? " rotate(" + f(fa * 90 * (it.face || 1) + rg * 4) + ")" : ""));
+        op(a, "it" + n, shownAt(ev, p));
+      });
+    }
   });
 
   /* foreground framing, then weather */
@@ -164,25 +225,33 @@ function plan(spec: Spec): Plan {
   const inBox = (x: number, y: number) => ({ x: box.x + ((x % box.w) + box.w) % box.w, y: box.y + ((y % box.h) + box.h) % box.h });
   const H = indoor ? box.h : 205;
   const wrap = (x: number, y: number) => indoor ? inBox(x, y) : { x: ((x % 330) + 330) % 330 - 5, y: ((y % 210) + 210) % 210 - 5 };
-  if (s.sky === "rain" || s.sky === "storm") {
+  const rainAct = skySeg("rain", "storm");
+  if (s.sky === "rain" || s.sky === "storm" || rainAct) {
     add(path("line", "M0,0", "rn"));
-    const heavy = (s.sky === "storm" ? 1.6 : 1) * (0.7 + s.a * 0.6);
-    mv.push((a, t, tm) => {
-      const n = Math.round((indoor ? 10 : 36) * heavy * lerp(0.5, 1, t)) + 6;
+    const heavy = (s.sky === "storm" || rainAct?.act.kind === "storm" ? 1.6 : 1) * (0.7 + s.a * 0.6);
+    mv.push((a, t, tm, _e, p) => {
+      const amt = rainAct ? amount(rainAct.act.kind, p) : 1;
+      if (amt <= 0.01) { a.a("rn").setAttribute("d", "M0,0"); return; }
+      const n = Math.round(((indoor ? 10 : 36) * heavy * lerp(0.5, 1, t) + 6) * amt);
       let d = "";
       for (let i = 0; i < n; i++) { const p = wrap(i * 53.3 + Math.sin(i) * 7, i * 29.7 + tm * 120 * heavy), yb = Math.min(p.y + 8, indoor ? box.y + H : 205); d += "M" + f(p.x) + "," + f(p.y) + " L" + f(p.x - 3 * heavy) + "," + f(yb) + " "; }
       a.a("rn").setAttribute("d", d);
     });
   }
-  if (s.sky === "storm") {
+  const flashAct = skySeg("flash", "storm");
+  if (s.sky === "storm" || flashAct) {
     const bx = box.x + box.w * (0.3 + rL() * 0.4), bh = indoor ? box.h : hy;
     add(path("lit", P([[bx, box.y], [bx + 6, box.y + bh * 0.35], [bx - 2, box.y + bh * 0.38], [bx + 8, box.y + bh * 0.8], [bx - 4, box.y + bh * 0.42], [bx + 3, box.y + bh * 0.4]]), "lt"));
-    mv.push((a, _t, tm) => { const cyc = (tm * 0.45) % 1; op(a, "lt", cyc < 0.04 || (cyc > 0.07 && cyc < 0.09) ? 1 : 0); });
+    mv.push((a, _t, tm, _e, p) => {
+      if (flashAct && flashAct.act.kind === "flash") { const u = prog(flashAct, p); op(a, "lt", (u > 0 && u < 0.08) || (u > 0.14 && u < 0.2) ? 1 : 0); return; }
+      const cyc = (tm * 0.45) % 1; op(a, "lt", cyc < 0.04 || (cyc > 0.07 && cyc < 0.09) ? 1 : 0);
+    });
   }
-  if (s.sky === "snow" || (s.season === "winter" && s.sky === "cloud")) {
+  const snowAct = skySeg("snow");
+  if (s.sky === "snow" || (s.season === "winter" && s.sky === "cloud") || snowAct) {
     add(path("lit", "M0,0", "sn"));
-    mv.push((a, t, tm) => {
-      const n = (indoor ? 16 : 46) * lerp(0.5, 1, t);
+    mv.push((a, t, tm, _e, p) => {
+      const n = (indoor ? 16 : 46) * lerp(0.5, 1, t) * (snowAct ? amount("snow", p) : 1);
       let d = "";
       for (let i = 0; i < n; i++) { const p = wrap(i * 47.1 + Math.sin(tm * 0.7 + i) * 6, i * 23.3 + tm * 14 * (0.6 + (i % 3) * 0.3)); d += circle(p.x, p.y, i % 4 ? 0.8 : 1.3) + " "; }
       a.a("sn").setAttribute("d", d || "M0,0");
@@ -192,15 +261,17 @@ function plan(spec: Spec): Plan {
     add(path("key", "M0,0", "lv"));
     mv.push((a, _t, tm) => { let d = ""; for (let i = 0; i < 9; i++) { const p = wrap(i * 61 + tm * (10 + s.a * 20), i * 37 + tm * 16); const r = Math.sin(tm * 2 + i); d += "M" + f(p.x) + "," + f(p.y) + " q" + f(2 * r) + ",-2 " + f(4) + ",0 q" + f(-2 * r) + ",2 -4,0 "; } a.a("lv").setAttribute("d", d); });
   }
-  if (s.sky === "fog" && !indoor) {
+  const fogAct = skySeg("fog");
+  if ((s.sky === "fog" || fogAct) && !indoor) {
     let d = "";
     for (let k = 0; k < 4; k++) { const y = hy - 8 + k * 14; d += ellipse(40 + k * 90 + rL() * 40, y, 150 + rL() * 60, 8 + k * 2) + " "; }
     add(group(path("haze", d), "fog", "", 'opacity=".7"'));
-    mv.push((a, t, tm) => { tf(a, "fog", "translate(" + f(Math.sin(tm * 0.15) * 20) + ",0)"); op(a, "fog", lerp(0.8, 0.5, t)); });
+    mv.push((a, t, tm, _e, p) => { tf(a, "fog", "translate(" + f(Math.sin(tm * 0.15) * 20) + ",0)"); op(a, "fog", lerp(0.8, 0.5, t) * (fogAct ? amount("fog", p) : 1)); });
   }
-  if (s.sky === "wind" && !indoor) {
+  const windAct = skySeg("wind");
+  if ((s.sky === "wind" || windAct) && !indoor) {
     add(path("line", "M0,0", "wd"));
-    mv.push((a, _t, tm) => { let d = ""; for (let i = 0; i < 6; i++) { const x = ((i * 71 + tm * (60 + s.a * 60)) % 420) - 60, y = 20 + (i * 37) % Math.max(20, hy - 10); d += "M" + f(x) + "," + f(y) + " q14,-5 28,0 t28,0 "; } a.a("wd").setAttribute("d", d); });
+    mv.push((a, _t, tm, _e, p) => { let d = ""; const m = Math.round(6 * (windAct ? amount("wind", p) : 1)); for (let i = 0; i < m; i++) { const x = ((i * 71 + tm * (60 + s.a * 60)) % 420) - 60, y = 20 + (i * 37) % Math.max(20, hy - 10); d += "M" + f(x) + "," + f(y) + " q14,-5 28,0 t28,0 "; } a.a("wd").setAttribute("d", d); });
   }
 
   /* motion read from the text */
@@ -209,12 +280,19 @@ function plan(spec: Spec): Plan {
   /* light: the hour and the mood set how far the scene brightens with the beat; a flicker shakes it */
   const top = night ? 0.85 : low ? 0.95 : 1, bottom = night ? 0.15 : 0.32 + 0.15 * s.v;
   const nz = fbm(s.moment + 17, 2);
-  mv.push((a, t, tm) => a.light(lerp(bottom, top, ease(seg(t, 0, 0.8))) * (fl ? 0.86 + 0.14 * nz(tm * 7) : 1)));
+  // Night falling or the sun rising carries the light with it; a dark veil deepens or lifts.
+  if (celAct) add(path("shade", rect(-5, -5, 330, 210), "dk", 'style="opacity:0"'));
+  mv.push((a, t, tm, _e, p) => {
+    let k = 1;
+    if (celAct) { const u = ease(prog(celAct, p)); k = sinks ? lerp(1, 0.45, u) : lerp(0.5, 1, u); op(a, "dk", sinks ? u * (celAct.act.kind === "nightfall" ? 0.55 : 0.35) : (1 - u) * 0.45); }
+    const flash = flashAct && flashAct.act.kind === "flash" ? (prog(flashAct, p) > 0 && prog(flashAct, p) < 0.2 ? 1.4 : 1) : 1;
+    a.light(lerp(bottom, top, ease(seg(t, 0, 0.8))) * (fl ? 0.86 + 0.14 * nz(tm * 7) : 1) * k * clock.dip * flash);
+  });
 
   const cls = "hz t-" + s.time;
   return {
     markup: (id) => defs(id) + group(skyDefs(id) + group(parts.map((p) => p(id)).join(""), "", "", 'class="w-' + s.sky + (s.season !== "none" ? " se-" + s.season : "") + '"'), "", "", 'class="' + cls + '"') + grain(id),
-    movers: mv,
+    movers: mv, tl, clock,
   };
 }
 
@@ -374,7 +452,7 @@ function skyDefs(id: string): string {
 }
 
 /** No place named: a quiet motif grown from the passage's mood, drawn small and centred. */
-function inner(s: Spec, r: Rng): Plan {
+function inner(s: Spec, r: Rng): Pick<Plan, "markup" | "movers"> {
   const mv: Mover[] = [], parts: string[] = [];
   const cx = 160, cy = 100, n = fbm(s.seed + 3, 3);
   const kind = s.v > 0.25 ? "rise" : s.v < -0.25 ? (s.a > 0.5 ? "strata" : "settle") : s.a < 0.45 ? "ripple" : "drift";
@@ -417,16 +495,25 @@ function inner(s: Spec, r: Rng): Plan {
   };
 }
 
-const cache = new Map<string, VScene>();
+const cache = new Map<string, VScene & { tl: Timeline }>();
 
-/** The vector scene for a spec (cached by id: the same spec is the same picture). */
-export function composeScene(s: Spec, id: string): VScene {
+/**
+ * The vector scene for a spec (cached by id: the same spec is the same picture). update() takes the
+ * play clock p (seconds since the picture began to play); without it the picture shows its still,
+ * the telling moment of what happens.
+ */
+export function composeScene(s: Spec, id: string): VScene & { tl: Timeline } {
   const hit = cache.get(id);
   if (hit) return hit;
-  const p = plan(s);
-  const vs: VScene = {
-    build: (uid) => p.markup(uid),
-    update(a, t, tm) { const e = ease(t); for (const m of p.movers) m(a, t, tm, e); },
+  const pl = plan(s);
+  const vs = {
+    tl: pl.tl,
+    build: (uid: string) => pl.markup(uid),
+    update(a: Parameters<VScene["update"]>[0], t: number, tm: number, p?: number) {
+      const e = ease(t), q = looped(pl.tl, p);
+      pl.clock.dip = q.dip;
+      for (const m of pl.movers) m(a, t, tm, e, q.p);
+    },
   };
   if (cache.size > 300) cache.clear();
   cache.set(id, vs);

@@ -13,6 +13,9 @@ export interface VecHandle {
   api: VApi;
   /** Shapes that draw themselves in (Ink only). */
   strokes: SVGElement[];
+  /** The last frame drawn (Cut paper skips repeats) and the beat the ink was last laid at. */
+  last?: string;
+  inked?: number;
 }
 
 let uid = 0;
@@ -37,11 +40,21 @@ export function makeVector(style: Style, scene: string, label: string): { wrap: 
   return { wrap, vec: { svg, api, strokes } };
 }
 
-export function drawVector(vec: VecHandle, style: Style, scene: string, t: number, tm: number): void {
-  // Cut paper moves "on threes": the beat snaps in 6 steps and ambient motion runs at 8 fps.
-  if (style === "cut") { t = Math.round(t * 6) / 6; tm = Math.floor(tm * 8) / 8; }
-  vscene(scene).update(vec.api, t, tm);
+/** Draw one frame. p: the play clock (seconds into what happens), or none for the still. */
+export function drawVector(vec: VecHandle, style: Style, scene: string, t: number, tm: number, p?: number): void {
+  // Cut paper moves "on threes": the beat snaps in 6 steps, ambient motion and the acts at 8 and 12 fps.
+  if (style === "cut") {
+    t = Math.round(t * 6) / 6; tm = Math.floor(tm * 8) / 8; if (p != null) p = Math.floor(p * 12) / 12;
+    // Nothing changed since the last frame: skip it.
+    const sig = t + "|" + tm + "|" + p;
+    if (vec.last === sig) return;
+    vec.last = sig;
+  }
+  vscene(scene).update(vec.api, t, tm, p);
   if (style === "ink") {
+    // Once every stroke is drawn in, the dashes stay as they are.
+    if (vec.inked === t) return;
+    vec.inked = t;
     const n = vec.strokes.length;
     vec.strokes.forEach((s, i) => {
       const d = clamp(t * 4 - i * (1.6 / Math.max(1, n)));

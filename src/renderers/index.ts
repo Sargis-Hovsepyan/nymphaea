@@ -25,6 +25,8 @@ export interface ArtItem {
   photo?: HTMLImageElement;
   /** Generative style: a seed from the text and its mood. */
   gen?: { h: number; v: number; a: number };
+  /** When the picture began to play what happens (ms), once it came into view; none until then. */
+  born?: number;
 }
 
 type RGB = [number, number, number];

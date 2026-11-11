@@ -9,8 +9,12 @@
 //   gen:<place>.<time>.<sky>.<props>.<who><pose>.<cast>.<shot><season>.<mood>.<seed>.<moment>[.<motion>]
 //   e.g. gen:city.night.rain.lamp+car.1w.k.fx.13.k3f.a0
 //   The motion part (a bit mask in base 36, see FX) is written only when the text named a motion,
-//   so every id made before it existed is still the same id.
+//   so every id made before it existed is still the same id. A twelfth part holds what happens, in
+//   order (compose/acts.ts, four characters per act); when it is there the motion part is always
+//   written, "0" for none, so the parts never read ambiguously.
 //
+import { describeActs, decodeActs, encodeActs, fitActs, remapActs, type Act } from "./acts";
+
 // The older seven part form (gen:<place>.<time>.<sky>.<props>.<who>[w].<mood>.<seed>) still decodes.
 
 export const PLACES = [
@@ -68,6 +72,8 @@ export interface Spec {
   moment: number;
   /** What moves, read from the verbs and nouns of the passage. Optional: older specs have none. */
   fx?: Fx[];
+  /** What happens, in order: read from the sentence, played by the picture. Optional: older specs have none. */
+  acts?: Act[];
 }
 
 export const MAX_PROPS = 4;
@@ -100,12 +106,14 @@ export function encode(s: Spec): string {
   const props = s.props.slice(0, MAX_PROPS).join("+") || "-";
   const who = clampWho(s.who);
   const mood = String(q(s.v, -1, 1, 5)) + String(q(s.a, 0, 1, 3));
+  const acts = fitActs({ who, props: s.props.slice(0, MAX_PROPS) }, s.acts);
   const cast = who ? Array.from({ length: who }, (_, i) => (((s.cast[i] ?? 0) % 36) + 36) % 36).map((b) => b.toString(36)).join("") : "-";
   return GEN + [
     s.place, s.time, s.sky, props, String(who) + (who ? POSE_CH[s.pose] || "" : ""), cast,
     SHOT_CH[s.shot] + SEASON_CH[s.season], mood,
     (Math.abs(s.seed | 0) % 46656).toString(36), (Math.abs(s.moment | 0) % 1296).toString(36),
-    ...(fxMask(s.fx) ? [fxMask(s.fx).toString(36)] : []),
+    ...(fxMask(s.fx) || acts.length ? [fxMask(s.fx).toString(36)] : []),
+    ...(acts.length ? [encodeActs(acts)] : []),
   ].join(".");
 }
 
@@ -121,12 +129,15 @@ const isOf = <T extends string>(list: readonly T[], v: string): v is T => (list 
 export function decode(id: unknown): Spec | null {
   if (typeof id !== "string" || !id.startsWith(GEN) || id.length > 140) return null;
   const p = id.slice(GEN.length).split(".");
-  if (p.length !== 7 && p.length !== 10 && p.length !== 11) return null;
-  let fx: Fx[] | undefined;
+  if (p.length !== 7 && (p.length < 10 || p.length > 12)) return null;
+  let fx: Fx[] | undefined, acts: Act[] | null = null;
+  if (p.length === 12) { acts = decodeActs(p[11]); if (!acts) return null; p.length = 11; }
   if (p.length === 11) {
     const m = /^[0-9a-z]{1,2}$/.test(p[10]) ? parseInt(p[10], 36) : NaN;
-    if (!(m > 0 && m < 1 << FX.length)) return null;
-    fx = fxOf(m); p.length = 10;
+    // With acts the mask may be 0 (no motion); without them a 0 would be a second spelling of no part at all.
+    if (!(m >= (acts ? 0 : 1) && m < 1 << FX.length)) return null;
+    if (m) fx = fxOf(m);
+    p.length = 10;
   }
   const old = p.length === 7;
   const [place, time, sky, props, who] = p;
@@ -140,11 +151,13 @@ export function decode(id: unknown): Spec | null {
   const n = +wm[1];
   if (!/^(-|[0-9a-z]{1,3})$/.test(castS) || (castS !== "-" && castS.length !== n) || (castS === "-" && n > 0 && !old)) return null;
   const cast = castS === "-" ? Array.from({ length: n }, (_, i) => (parseInt(seed, 36) + i * 7) % 36) : castS.split("").map((c) => parseInt(c, 36));
+  const propList = Array.from(new Set(pr)) as Prop[];
+  const fitted = acts ? fitActs({ who: n, props: propList }, acts) : [];
   return {
-    place, time, sky, season: CH_SEASON[fm[2]], props: Array.from(new Set(pr)) as Prop[],
+    place, time, sky, season: CH_SEASON[fm[2]], props: propList,
     who: n, pose: n ? CH_POSE[wm[2]] || "stand" : "stand", cast, shot: CH_SHOT[fm[1]],
     v: dq(+mm[1], -1, 1, 5), a: dq(+mm[2], 0, 1, 3), seed: parseInt(seed, 36), moment: parseInt(moment, 36) % 1296,
-    ...(fx ? { fx } : {}),
+    ...(fx ? { fx } : {}), ...(fitted.length ? { acts: fitted } : {}),
   };
 }
 
@@ -162,7 +175,14 @@ export function blank(seed = 0, over: Partial<Spec> = {}): Spec {
 export function withWho(s: Spec, who: number): Spec {
   const n = clampWho(who);
   const cast = Array.from({ length: n }, (_, i) => s.cast[i] ?? (s.seed + i * 7) % 36);
-  return { ...s, who: n, cast, pose: n ? (s.pose === "pair" && n < 2 ? "stand" : s.pose) : "stand" };
+  const acts = fitActs({ who: n, props: s.props }, s.acts);
+  return { ...s, who: n, cast, pose: n ? (s.pose === "pair" && n < 2 ? "stand" : s.pose) : "stand", ...(s.acts ? { acts } : {}) };
+}
+
+/** Change the things in a picture: acts on a thing follow it to its new place, or go with it. */
+export function withProps(s: Spec, props: Prop[]): Spec {
+  const next = Array.from(new Set(props)).slice(0, MAX_PROPS);
+  return { ...s, props: next, ...(s.acts ? { acts: fitActs({ who: s.who, props: next }, remapActs(s.acts, s.props, next)) } : {}) };
 }
 
 /** A spec from loose data (an AI reply, a form): unknown values fall back, never throw. */
@@ -218,13 +238,15 @@ export function list(xs: string[]): string {
 
 /** A plain description, used as the picture's accessible label and in the Studio. */
 export function describe(s: Spec): string {
+  if (s.place === "inner" && s.acts && s.acts.length) return "a bare stage" + (s.who ? ", with " + WHO_WORDS[s.who] : "") + (s.props.length ? (s.who ? " and " : ", with ") + list(s.props.map((p) => PROP_WORDS[p])) : "") + "; " + describeActs(s);
   if (s.place === "inner") return "a quiet pattern of lines, " + (s.v > 0.25 ? "rising" : s.v < -0.25 ? (s.a > 0.5 ? "pressed into layers" : "settling") : s.a < 0.45 ? "spreading in rings" : "drifting");
   const who = s.who ? WHO_WORDS[s.who] + (POSE_WORDS[s.pose] ? " " + POSE_WORDS[s.pose] : "") : "";
   const things = list([...s.props.map((p) => PROP_WORDS[p]), who]);
   const lead = s.shot === "close" && s.props.length ? SHOT_WORDS.close + PROP_WORDS[s.props[0]] + " in " : SHOT_WORDS[s.shot];
   const rest = s.shot === "close" && s.props.length ? list([...s.props.slice(1).map((p) => PROP_WORDS[p]), who]) : things;
   const motion = (s.fx || []).map((x) => x === "fall" ? (s.season === "autumn" ? "leaves falling" : s.season === "spring" ? "petals falling" : FX_WORDS.fall) : FX_WORDS[x]);
-  return lead + [PLACE_WORDS[s.place], TIME_WORDS[s.time], SKY_WORDS[s.sky], SEASON_WORDS[s.season]].filter(Boolean).join(" ") + (rest ? ", with " + rest : "") + (motion.length ? "; " + list(motion) : "");
+  const acts = s.acts && s.acts.length ? "; " + describeActs(s) : "";
+  return lead + [PLACE_WORDS[s.place], TIME_WORDS[s.time], SKY_WORDS[s.sky], SEASON_WORDS[s.season]].filter(Boolean).join(" ") + (rest ? ", with " + rest : "") + (motion.length ? "; " + list(motion) : "") + acts;
 }
 
 export const LABEL = { fx: FX_WORDS, place: PLACE_WORDS, time: TIME_WORDS, sky: SKY_WORDS, prop: PROP_WORDS, season: SEASON_WORDS, pose: POSE_WORDS, shot: SHOT_WORDS };

@@ -13,6 +13,8 @@ import type { Block } from "../types";
 import { hash, moodOf } from "../stage/mood";
 import { stem } from "../stage/stem";
 import { locate, type Hit } from "../stage/locate";
+import { readActs, type RawAct, type Ref, type Word } from "./clauses";
+import { ALL, OFF_AHEAD, OFF_BEHIND, PAIR, SKY, THING0, TO_FIG0, TO_NONE, TO_THING0, UP, DOWN, fitActs, type Act, type FigKind } from "./acts";
 import { FX, MAX_PROPS, PLACES, POSES, PROPS, SEASONS, SKIES, TIMES, isIndoor, type Place, type Pose, type Fx, type Prop, type Season, type Shot, type Sky, type Spec, type Time } from "./spec";
 
 const PLACE_LEX: Record<Place, string> = {
@@ -170,6 +172,9 @@ export interface Evidence {
   fx: Partial<Record<Fx, number>>;
   /** Where each thing is first named (word index): the first-named thing is usually the subject. */
   first: Partial<Record<Prop, number>>;
+  /** What happens, clause by clause, and the people it names (compose/clauses.ts). */
+  acts: RawAct[];
+  refs: Ref[];
 }
 
 /** Two-word names that mean something neither word does alone; both words are used up. */
@@ -197,7 +202,7 @@ const UNREAL = new Set("remembered remember remembering recalled dreamed dreamt 
 const COUNT2 = new Set(["two", "both", "couple", "pair"]);
 const RESUME = new Set("then but now suddenly yet until when".split(" "));
 
-interface Tok { w: string; weight: number }
+interface Tok extends Word {}
 /**
  * The words of a passage with how much each one counts for the setting and the things in it: in
  * full where the passage is, 0.2 inside a simile or a memory or a wish ("like a storm", "she
@@ -206,15 +211,15 @@ interface Tok { w: string; weight: number }
  */
 function scoped(text: string): Tok[] {
   const out: Tok[] = [];
-  let talk = false, unreal = false, simile = false, prev = "", prev2 = "";
-  const re = /[“”"]|[.!?;]|,|[\p{L}\p{N}’']+/giu;
+  let talk = false, unreal = false, simile = false, prev = "", prev2 = "", br = "";
+  const re = /[“”"]|[.!?;:]|,|[\p{L}\p{N}’']+/giu;
   for (let m = re.exec(text); m; m = re.exec(text)) {
     const t = m[0];
-    if (t === "“") { talk = true; continue; }
-    if (t === "”" || (t === '"' && talk)) { talk = false; unreal = false; simile = false; continue; }
-    if (t === '"') { talk = true; continue; }
-    if (/^[.!?;]$/.test(t)) { unreal = false; simile = false; prev = ""; continue; }
-    if (t === ",") { simile = false; prev = ","; continue; }
+    if (t === "“") { talk = true; br = br || ","; continue; }
+    if (t === "”" || (t === '"' && talk)) { talk = false; unreal = false; simile = false; br = br || ","; continue; }
+    if (t === '"') { talk = true; br = br || ","; continue; }
+    if (/^[.!?;:]$/.test(t)) { unreal = false; simile = false; prev = ""; br = t; continue; }
+    if (t === ",") { simile = false; prev = ","; br = br || ","; continue; }
     const w = t.toLowerCase();
     if (RESUME.has(w)) unreal = false;
     // A simile is the phrase after "like"; a preposition starts the sentence's own words again.
@@ -222,7 +227,8 @@ function scoped(text: string): Tok[] {
     if (UNREAL.has(w)) unreal = true;
     // "like a storm", "burned like fire", "as if": but "I like the sea" is not a simile.
     if ((prev === "like" && !SUBJ.has(prev2)) || (prev === "as" && /^(if|though)$/.test(w))) simile = true;
-    out.push({ w, weight: simile || unreal ? 0.2 : talk ? 0.5 : 1 });
+    out.push({ w, raw: t, br, weight: simile || unreal ? 0.2 : talk ? 0.5 : 1 });
+    br = "";
     prev2 = prev; prev = w;
   }
   return out;
@@ -286,8 +292,24 @@ function walk(text: string, visit: (h: Named1) => void): Tok[] {
   return toks;
 }
 
+/** What the clause reader needs from the lexicons: which thing a noun names, and whether a word is a name. */
+const LEXICON = {
+  propOf: (w: string, next = ""): Prop | null => {
+    // Two-word names decide: "fire escape" names no fire, "street lamp" names a lamp.
+    const ph = PHRASES[w + " " + next];
+    if (ph) { const t = ph.find(([k]) => k === "prop"); return t ? t[1] as Prop : null; }
+    return PROPS.find((p) => hit(R_LEX[p], w)) || null;
+  },
+  isName: (raw: string): boolean => /^[A-Z][a-z]{2,}$/.test(raw) && !NOT_NAMES.has(raw) && !COMMON.has(raw.toLowerCase()),
+};
+/** Lower-case words that are never names, even at the start of a sentence. */
+const COMMON = new Set<string>([
+  ...[P_LEX, T_LEX, S_LEX, R_LEX, SE_LEX, PO_LEX, F_LEX].flatMap((L) => Object.values(L).flatMap((x) => Array.from(x as Set<string>))),
+  ...ONE_L, ...TWO_L, ...MANY_L, ...PREP, ...NEG, ..."sun rain snow fog mist wind storm cloud clouds lightning thunder day dawn dusk night darkness suddenly slowly later soon inside outside there here everything nothing someone something somewhere everyone nobody".split(" "),
+]);
+
 export function evidence(text: string): Evidence {
-  const e: Evidence = { place: {}, time: {}, sky: {}, season: {}, props: {}, pose: {}, one: 0, two: 0, many: 0, child: 0, elder: 0, speech: 0, walk: 0, fx: {}, first: {} };
+  const e: Evidence = { place: {}, time: {}, sky: {}, season: {}, props: {}, pose: {}, one: 0, two: 0, many: 0, child: 0, elder: 0, speech: 0, walk: 0, fx: {}, first: {}, acts: [], refs: [] };
   const add = (m: Partial<Record<string, number>>, k: string, v: number) => { m[k] = Math.max(0, (m[k] || 0) + v); };
   const toks = walk(text, (h) => {
     switch (h.kind) {
@@ -302,20 +324,23 @@ export function evidence(text: string): Evidence {
   // "He looked at me": the narrator and someone else are two people.
   const ws = new Set(toks.map((t) => t.w));
   if (["i", "me", "my"].some((w) => ws.has(w)) && ["he", "him", "she", "her"].some((w) => ws.has(w))) e.two++;
+  const r = readActs(toks, LEXICON);
+  e.acts = r.acts; e.refs = r.refs;
   return e;
 }
 
 /** The words in a passage that named its scene, by kind, as written (for the Studio's "why this picture"). */
-export interface Named { place: string[]; time: string[]; sky: string[]; season: string[]; props: string[]; pose: string[]; people: string[]; motion: string[] }
+export interface Named { place: string[]; time: string[]; sky: string[]; season: string[]; props: string[]; pose: string[]; people: string[]; motion: string[]; act: string[] }
 export function namedWords(text: string): Named {
-  const out: Named = { place: [], time: [], sky: [], season: [], props: [], pose: [], people: [], motion: [] };
-  walk(text, (h) => {
+  const out: Named = { place: [], time: [], sky: [], season: [], props: [], pose: [], people: [], motion: [], act: [] };
+  const toks = walk(text, (h) => {
     if (h.w <= 0) return;
     if (h.kind === "people" && (h.key === "child" || h.key === "elder")) return;
     // Words in a simile or a memory hardly count, so they are not shown as what the picture is of.
     if (h.w < 0.5 && h.kind !== "pose" && h.kind !== "motion" && h.kind !== "people") return;
     if (!out[h.kind].includes(h.raw)) out[h.kind].push(h.raw);
   });
+  readActs(toks, LEXICON).acts.forEach((a) => { const w = a.words.join(" "); if (!out.act.includes(w)) out.act.push(w); });
   return out;
 }
 
@@ -408,6 +433,52 @@ export function fxFor(e: Evidence, place: Place, time: Time, sky: Sky): Fx[] {
     .sort((a, b) => (m[b] || 0) - (m[a] || 0) || FX.indexOf(a) - FX.indexOf(b)).slice(0, 3);
 }
 
+/** Acts that move a figure from where it stands, and acts that are done in place with the hands or the face. */
+const TRAVEL = new Set<string>(["go", "run", "enter", "leave", "cross"]);
+const GESTURE = new Set<string>(["handle", "open", "close", "light", "snuff", "knock", "take", "give", "put", "drop", "throw", "raise", "wave", "point", "drink", "read", "work", "speak", "nod", "shake", "weep", "laugh", "bow", "hug", "kiss", "greet"]);
+
+/**
+ * The read acts bound to this picture: people to figure numbers (in order of first mention), things to
+ * their place in the props, directions to targets. Returns the acts and how many figures they need.
+ */
+export function bindActs(raw: RawAct[], props: Prop[], who: number): { acts: Act[]; who: number; order: number[] } {
+  const order: number[] = [];
+  const fig = (ref: number) => { let i = order.indexOf(ref); if (i < 0) { order.push(ref); i = order.length - 1; } return i; };
+  // People first, in the order the acts name them.
+  raw.forEach((a) => {
+    if (a.subj.t === "fig") fig(a.subj.ref);
+    if (a.subj.t === "all" && a.fam === "pair") a.subj.refs.slice(0, 2).forEach(fig);
+    if (a.obj && a.obj.t === "fig") fig(a.obj.ref);
+  });
+  const need = Math.min(3, Math.max(who, order.length, raw.some((a) => a.fam === "pair") ? 2 : 0));
+  const acts: Act[] = [];
+  raw.forEach((a) => {
+    let by: number;
+    if (a.subj.t === "sky") by = SKY;
+    else if (a.subj.t === "thing") { const j = props.indexOf(a.subj.prop); if (j < 0) return; by = THING0 + j; }
+    else if (a.fam === "pair") by = PAIR;
+    else if (a.subj.t === "all") by = need > 1 ? ALL : 0;
+    else { by = fig(a.subj.ref); if (by > 2) return; }
+    let kind = a.kind as Act["kind"], to = TO_NONE, away = a.dir === "away";
+    if (a.obj?.t === "fig") { const j = fig(a.obj.ref); to = j <= 2 ? TO_FIG0 + j : TO_NONE; }
+    else if (a.obj?.t === "thing") { const j = props.indexOf(a.obj.prop); to = j < 0 ? TO_NONE : TO_THING0 + j; }
+    else if (a.obj?.t === "up") to = UP;
+    else if (a.obj?.t === "down") to = DOWN;
+    if (a.dir === "ahead") to = to === TO_NONE ? OFF_AHEAD : to;
+    if (a.dir === "behind") to = to === TO_NONE ? OFF_BEHIND : to;
+    if (a.fam === "fig") {
+      const door = props.findIndex((p) => p === "door" || p === "gate");
+      // "Stepped into the rain", "went out": out of the picture, through the door when there is one.
+      if ((kind === "go" || kind === "run") && (a.dir === "into" || a.dir === "ahead") && to === TO_NONE || (kind === "go" && a.dir === "ahead")) { kind = "leave"; to = OFF_AHEAD; }
+      if (kind === "leave" && (to === TO_NONE || to === OFF_AHEAD) && door >= 0) to = TO_THING0 + door;
+      if ((kind === "go" || kind === "run") && a.dir === "across" && to === TO_NONE) kind = "cross";
+      if (kind === "enter" && door >= 0 && to === TO_NONE) to = TO_THING0 + door;
+    }
+    acts.push({ by, kind, to, manner: a.manner, with: a.with, away });
+  });
+  return { acts: fitActs({ who: need, props }, acts), who: need, order };
+}
+
 /** The spec for a passage, given what the chapter has set up so far (ctx already includes it). */
 export function specFrom(text: string, ctx: Context, e: Evidence = evidence(text), held: Held = {}, cast: Cast = new Map(), extra: { names?: string[]; mood?: string; shot?: Evidence } = {}): Spec {
   const mood = moodOf(extra.mood ?? text);
@@ -435,6 +506,11 @@ export function specFrom(text: string, ctx: Context, e: Evidence = evidence(text
   else if (e.one || e.many) who = 1;
   // A named person is a person, even when no pronoun says so.
   if (names.length > who) who = Math.min(3, names.length);
+  // A thing that acts, or is acted on, is in the picture even when it is named only in passing.
+  e.acts.forEach((a) => [a.subj, a.obj].forEach((x) => { if (x && x.t === "thing" && !props.includes(x.prop) && props.length < MAX_PROPS) props.push(x.prop); }));
+  // What happens: people named by the acts are figures, even when named only once.
+  const bound = e.acts.length ? bindActs(e.acts, props, who) : null;
+  if (bound && bound.acts.length) who = Math.max(who, bound.who);
   // The pose: the strongest verb; a pair needs two people.
   let pose: Pose = "stand";
   if (who) {
@@ -443,12 +519,33 @@ export function specFrom(text: string, ctx: Context, e: Evidence = evidence(text
   }
   const h = hash(text);
   const stature: 0 | 1 | 2 = e.child > 0 ? 1 : e.elder > 0 ? 2 : 0;
-  const builds = Array.from({ length: who }, (_, i) => names[i] ? cast.get(names[i])! : buildFor((h >>> (i * 5)) % 997, i === 0 ? stature : 0));
+  // Builds follow the figures the acts number (a named person keeps their silhouette), else the names in order.
+  const nameAt = (i: number): string | undefined => {
+    if (bound && bound.acts.length) { const r = e.refs[bound.order[i]]; return r ? r.name : undefined; }
+    return names[i];
+  };
+  const builds = Array.from({ length: who }, (_, i) => { const n = nameAt(i); return n ? cast.get(n) ?? hash(n) % 36 : buildFor((h >>> (i * 5)) % 997, i === 0 ? stature : 0); });
   const sd = held.chapter != null ? hash(held.chapter + "|" + place) % 46656 : h % 46656;
-  const fx = fxFor(e, place, time, sky);
+  const acts = bound ? bound.acts : [];
+  // A verb that is acted out is not also loose motion: "night fell" and "she fell" drop no leaves, "the bird flew off" is that bird.
+  const fxE = { ...e, fx: { ...e.fx } };
+  e.acts.forEach((a) => { a.words.forEach((w) => FX.forEach((k) => { if (hit(F_LEX[k], w.toLowerCase()) && fxE.fx[k]) fxE.fx[k] = Math.max(0, fxE.fx[k]! - 1); })); });
+  const fx = fxFor(fxE, place, time, sky);
+  // The sky's acts set the hour they happen at: a sunrise is at dawn, night falls at dusk.
+  const skyAct = acts.find((a) => a.by === SKY);
+  if (skyAct && !(argmax(e.time, 0.9) && ["rain", "snow", "fog", "wind", "storm", "cloud", "flash"].includes(skyAct.kind))) {
+    const at: Partial<Record<string, Time>> = { sunrise: "dawn", daybreak: "dawn", sunset: "dusk", nightfall: "dusk", moonrise: "night", stars: "night" };
+    if (at[skyAct.kind]) time = at[skyAct.kind]!;
+  }
+  let shot: Shot = place === "inner" && !acts.length ? "wide" : shotFor(extra.shot ?? e, who, props);
+  const figActs = acts.filter((a) => a.by <= PAIR);
+  // A person acting is never a still life; going somewhere needs room, a gesture is seen nearer.
+  if (figActs.some((a) => TRAVEL.has(a.kind))) shot = "wide";
+  else if (figActs.length && shot === "close") shot = "mid";
+  else if (figActs.length && figActs.every((a) => GESTURE.has(a.kind)) && who <= 2 && shot === "wide") shot = "mid";
   return {
-    place, time, sky, season, props, who, pose, cast: builds, shot: place === "inner" ? "wide" : shotFor(extra.shot ?? e, who, props),
-    v: mood.v, a: mood.a, seed: sd, moment: h % 1296, ...(fx.length ? { fx } : {}),
+    place, time, sky, season, props, who, pose, cast: builds, shot,
+    v: mood.v, a: mood.a, seed: sd, moment: h % 1296, ...(fx.length ? { fx } : {}), ...(acts.length ? { acts } : {}),
   };
 }
 

@@ -49,7 +49,7 @@ export function sentences(t: string): string[] {
 
 /**
  * The moment in a paragraph to picture: the one or two sentences that say the most about their own
- * scene (a place, an hour, a sky, things, people). Null when the paragraph is one moment already,
+ * scene (a place, an hour, a sky, things, people) and what happens in it. Null when the paragraph is one moment already,
  * or when no part of it is more concrete than the whole.
  */
 export function momentOf(t: string): string | null {
@@ -60,7 +60,8 @@ export function momentOf(t: string): string | null {
     if (i + n > ss.length || n >= ss.length) continue;
     const w = ss.slice(i, i + n).join(" ");
     const e = evidence(w), len = w.split(/\s+/).length;
-    const v = concreteness(e) + (e.one + e.two + e.many > 0 ? 0.4 : 0) - Math.max(0, len - 40) * 0.05 - (n - 1) * 0.3;
+    // Something happening (a door opening, the sun rising) makes a moment worth a picture.
+    const v = concreteness(e) + (e.one + e.two + e.many > 0 ? 0.4 : 0) + Math.min(2, e.acts.length) * 0.6 - Math.max(0, len - 40) * 0.05 - (n - 1) * 0.3;
     if (v > bv) { bv = v; best = w; }
   }
   // Only when the moment is in the paragraph exactly as written (sentence joins can differ in spacing).
@@ -79,6 +80,8 @@ export function cut(s: Spec, prev: Spec | null): Spec {
     const shot = order[(order.indexOf(prev.shot) + k) % 3];
     if (shot === "mid" && !s.who) continue;
     if (shot === "close" && !s.props.length) continue;
+    // A person acting is never a still life.
+    if (shot === "close" && (s.acts || []).some((a) => a.by <= 4)) continue;
     return { ...s, shot };
   }
   // No other shot fits: the camera moves to another spot in the same place (a new layout), so two

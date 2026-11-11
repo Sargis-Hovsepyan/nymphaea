@@ -6,7 +6,8 @@ import { describe, encode } from "../compose/spec";
 import { NUM } from "../settings";
 import { locate, shown, type Hit } from "../stage/locate";
 import { state } from "../state";
-import { drawVector, isVector, makeVector, type VecHandle } from "../renderers/vector";
+import { isVector } from "../renderers/vector";
+import { player, type Player } from "../renderers/player";
 import { $, book, hooks, narrow, sess } from "./session";
 import { addPictureAfter, addPictureFrom, openCard, pNumber, redrawFrom, setHere } from "./pictures";
 import { rowsHtml, rowsOfReading } from "./readout";
@@ -60,11 +61,11 @@ export function onView(fig: number): void { setHere(fig); }
 let words: { hit: Hit; after: number } | null = null;
 /** "Choose other words" on picture k arms the bar: the next selection redraws that picture. */
 let armed = -1;
-let vec: VecHandle | null = null, raf = 0;
+let pl: Player | null = null;
 
 function closeWords(clearSel = true): void {
   if (!words && $("mkWords").hidden) return;
-  words = null; cancelAnimationFrame(raf); raf = 0; vec = null;
+  words = null; pl?.stop(); pl = null;
   $("mkWords").hidden = true; $("mkWords").textContent = "";
   if (clearSel) sess.preview.send({ type: "span", from: 0, to: 0, text: "" });
 }
@@ -103,22 +104,14 @@ export function showWords(h: Hit): void {
       : `<button type="button" class="btn primary" data-w="add">Add this picture after ¶ ${pNumber(after)}</button>` +
         (near >= 0 ? `<button type="button" class="btn" data-w="redraw" data-k="${near}">Redraw picture ${NUM[near] || near + 1} instead</button>` : "")) +
     `</div>`;
-  const { wrap, vec: v } = makeVector(sty, id, cap(describe(r.spec)));
-  box.querySelector(".wd-art")!.appendChild(wrap);
-  vec = v;
   box.hidden = false;
+  const art = box.querySelector<HTMLElement>(".wd-art")!;
+  pl?.stop();
+  pl = player(art);
+  pl.set(sty, id, cap(describe(r.spec)));
+  art.title = "Play again";
+  art.addEventListener("click", () => pl?.replay());
   sess.preview.send({ type: "span", from: h.startBlock, to: h.endBlock, text: shown(h.exact) });
-  const born = performance.now(), still = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  cancelAnimationFrame(raf);
-  if (still) drawVector(v, sty, id, 1, 4);
-  else {
-    const frame = (now: number) => {
-      if (!vec || vec !== v || box.hidden) { raf = 0; return; }
-      drawVector(v, sty, id, Math.min(1, (now - born) / 1800), now / 1000);
-      raf = requestAnimationFrame(frame);
-    };
-    raf = requestAnimationFrame(frame);
-  }
 }
 
 /** Picture k should be drawn from other words: wait for a selection. */

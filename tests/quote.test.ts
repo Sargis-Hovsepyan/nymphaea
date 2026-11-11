@@ -45,8 +45,10 @@ describe("reading chosen words", () => {
     expect(r.spec.pose).toBe("sit");
     expect(r.spec.cast[0]).toBe(named.spec.cast[0]);
   });
-  it("a short quote naming a small thing and no place is a close shot", () => {
-    expect(readQuoteAt(blocks, 2, "she set the cup on the table")!.spec.shot).toBe("close");
+  it("a short quote of someone setting down a small thing is seen nearer, with the act", () => {
+    const r = readQuoteAt(blocks, 2, "she set the cup on the table")!;
+    expect(r.spec.shot).toBe("mid");
+    expect(r.spec.acts?.map((a) => a.kind)).toEqual(["put"]);
   });
   it("words not near the paragraph give nothing", () => {
     expect(readQuoteAt(blocks, 3, "lived above the harbour")).not.toBeNull();

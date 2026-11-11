@@ -1,5 +1,7 @@
 // A dev-only page (not in the build): every place and shot, in any picture style, to look at the
-// composed scenes side by side. Run `npx vite` and open /gallery.html. Add ?ids=gen:a,gen:b to pin.
+// composed scenes side by side. Run `npx vite` and open /gallery.html. Add ?ids=gen:a,gen:b to pin,
+// ?read for sentences read as a book is, ?act for sentences that act something out (with a play
+// slider: "p" scrubs the play clock, "play" runs it).
 import { vscene, sceneLabel } from "./compose";
 import { blank, encode, PLACES, type Spec } from "./compose/spec";
 import { readSpec } from "./compose/read";
@@ -34,28 +36,50 @@ const LINES = [
   "She held the candle up in the dark hall.",
   "He rowed the boat across the lake at dusk.",
 ];
+// ?act: what happens, played.
+const ACTS = [
+  "The train pulled into the station in the snow.", "The candle went out.", "The sun rose over the sea.",
+  "The rain stopped and the sun came out over the field.", "Her heart sank when the door slammed shut.",
+  "A bird flew up from the fence as she walked along the road.", "He turned and ran from the dog.",
+  "She sat down on the bench and wept.", "She opened the door and stepped into the rain.", "Mara lit a candle in the church.",
+  "He gave her the letter.", "They embraced on the platform as the train left.", "Night fell over the village and the stars came out.",
+  "She knelt by the grave and laughed.", "He picked up the cup and drank.", "The two friends danced in the garden at dusk.",
+  "She waved from the boat as it sailed away.", "The clock struck midnight and he looked up.", "He jumped over the fence and ran off.",
+  "She fell in the street, then got up slowly.",
+];
 const q = new URLSearchParams(location.search);
 const pinned = q.get("ids");
-const ids = pinned ? pinned.split(",") : q.has("read") ? LINES.map((t) => encode(readSpec(t))) : specs.map(encode);
+const ids = pinned ? pinned.split(",") : q.has("act") ? ACTS.map((t) => encode(readSpec(t))) : q.has("read") ? LINES.map((t) => encode(readSpec(t))) : specs.map(encode);
+const texts = q.has("act") ? ACTS : q.has("read") ? LINES : [];
 const g = document.getElementById("g")!, sel = document.getElementById("st") as HTMLSelectElement, tr = document.getElementById("t") as HTMLInputElement;
+const pr = document.getElementById("p") as HTMLInputElement, playB = document.getElementById("play") as HTMLButtonElement;
+let drawn: { id: string; vec: ReturnType<typeof makeVector>["vec"] }[] = [];
 
 function render(): void {
   g.textContent = "";
-  const st = sel.value as Style | "canvas", t = +tr.value;
-  ids.forEach((id) => {
+  const st = sel.value as Style | "canvas", t = +tr.value, p = pr.value === "" ? undefined : +pr.value;
+  drawn = [];
+  ids.forEach((id, n) => {
     const fig = document.createElement("figure");
     if (st === "canvas") {
       const cv = document.createElement("canvas"); cv.width = 640; cv.height = 400;
-      const m = sceneModel(id); vscene(id).update(m.api, t, 2); drawModel(m, cv.getContext("2d")!, 640, 400);
+      const m = sceneModel(id); vscene(id).update(m.api, t, 2, p); drawModel(m, cv.getContext("2d")!, 640, 400);
       fig.appendChild(cv);
     } else {
       const { wrap, vec } = makeVector(st, id, sceneLabel(id));
-      fig.appendChild(wrap); drawVector(vec, st, id, t, 2);
+      fig.appendChild(wrap); drawVector(vec, st, id, t, 2, p); drawn.push({ id, vec });
     }
-    const cap = document.createElement("figcaption"); cap.textContent = id + " · " + sceneLabel(id);
+    const cap = document.createElement("figcaption"); cap.textContent = (texts[n] ? texts[n] + " · " : "") + id + " · " + sceneLabel(id);
     fig.appendChild(cap); g.appendChild(fig);
   });
 }
-sel.onchange = tr.oninput = render;
+sel.onchange = tr.oninput = pr.oninput = render;
+let raf = 0;
+playB.onclick = () => {
+  if (raf) { cancelAnimationFrame(raf); raf = 0; return; }
+  const t0 = performance.now(), st = sel.value as Style;
+  const step = (now: number) => { const p = (now - t0) / 1000; drawn.forEach((d) => drawVector(d.vec, st, d.id, 1, now / 1000, p)); pr.value = String(Math.min(+pr.max, p % +pr.max)); raf = requestAnimationFrame(step); };
+  raf = requestAnimationFrame(step);
+};
 (document.getElementById("lt") as HTMLInputElement).onchange = (e) => document.body.classList.toggle("light", (e.target as HTMLInputElement).checked);
 render();

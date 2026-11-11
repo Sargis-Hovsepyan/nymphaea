@@ -138,11 +138,11 @@ export function modelSvg(m: SceneModel, colours: { bg: string; ink: string; acce
 }
 
 /** A canvas scene function for any vector scene (see scenes/index.ts). */
-export function canvasScene(name: string): (c: Ctx, t: number, tm: number) => void {
+export function canvasScene(name: string): (c: Ctx, t: number, tm: number, p?: number) => void {
   let m: SceneModel | null = null;
-  return (c, t, tm) => {
+  return (c, t, tm, p) => {
     if (!m) m = sceneModel(name);
-    vscene(name).update(m.api, t, tm);
+    vscene(name).update(m.api, t, tm, p);
     const cv = (c as CanvasRenderingContext2D).canvas, ok = cv && typeof cv.width === "number";
     drawModel(m, c, ok ? cv.width : 192, ok ? cv.height : 120);
   };

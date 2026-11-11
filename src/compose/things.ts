@@ -7,10 +7,12 @@ import { P, beamFill, circle, ellipse, f, pool, rect, seg } from "../vscenes/sha
 import type { VApi } from "../vscenes";
 import type { Rng } from "./noise";
 import type { Place, Prop, Season } from "./spec";
+import { litAt, openAt, ringAt, smokeAt, travelAt, type Ev } from "./perform";
 
-export type Mover = (a: VApi, t: number, tm: number, e: number) => void;
+/** A part's motion for one frame: t the beat (scroll), tm seconds, e the eased beat, p the play clock (seconds into what happens). */
+export type Mover = (a: VApi, t: number, tm: number, e: number, p: number) => void;
 export interface Built { svg: string; movers: Mover[] }
-export interface Ctx { night: boolean; low: boolean; season: Season; place: Place; r: Rng; a: number; indoor: boolean }
+export interface Ctx { night: boolean; low: boolean; season: Season; place: Place; r: Rng; a: number; indoor: boolean; /** What the acts do to this thing (compose/perform.ts). */ ev?: Ev[] }
 
 export const tf = (a: VApi, k: string, v: string) => a.a(k).setAttribute("transform", v);
 export const op = (a: VApi, k: string, v: number) => { (a.a(k) as SVGElement).style.opacity = f(clamp(v)); };
@@ -91,6 +93,9 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
   const key = (s: string) => p + k + s;
   const mv: Mover[] = [];
   const r = c.r, wind = 0.6 + c.a * 1.2;
+  const ev = c.ev || [];
+  /** It travels by an act (arrives, leaves, passes): the scene moves the whole thing, so it does not drift with the beat. */
+  const travels = travelAt(ev, 0) !== null;
   let svg = "";
   switch (p) {
     case "tree": {
@@ -117,27 +122,34 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
     case "lamp": {
       svg = path("beam", P([[-3, -55], [3, -55], [26, 0], [-26, 0]]), key("b"), beamFill(id)) + path("far", rect(-1.3, -58, 2.6, 58) + " " + P([[-5, -58], [5, -58], [3, -64], [-3, -64]]))
         + path("lit", circle(0, -55.5, 2.6), key("l"));
-      mv.push((a, t, tm) => { const fl = 0.85 + 0.15 * Math.sin(tm * 7 + k) * c.a; op(a, key("l"), lerp(0.4, 1, t) * fl); op(a, key("b"), (c.night ? 0.9 : 0.3) * lerp(0.3, 1, t) * fl); });
+      mv.push((a, t, tm, _e, p) => { const lt = litAt(ev, p) ?? 1, fl = (0.85 + 0.15 * Math.sin(tm * 7 + k) * c.a) * lt; op(a, key("l"), lerp(0.4, 1, t) * fl); op(a, key("b"), (c.night ? 0.9 : 0.3) * lerp(0.3, 1, t) * fl); });
       break;
     }
     case "boat": {
       svg = group(path("far", P([[-22, -4], [22, -4], [15, 4], [-15, 4]])) + path("line", "M0,-4 V-36") + path("key", P([[1, -6], [1, -35], [19, -8]])) + path("bg2", P([[-1, -8], [-1, -30], [-14, -8]])), key("g"));
       const ph = r() * 5;
-      mv.push((a, t, tm) => tf(a, key("g"), "translate(" + f(lerp(-10, 10, ease(t))) + "," + f(Math.sin(tm * 1.4 + ph) * 1.4 * wind) + ") rotate(" + f(Math.sin(tm * 1.1 + ph) * 2.5 * wind) + ")"));
+      mv.push((a, t, tm) => tf(a, key("g"), "translate(" + f(travels ? 0 : lerp(-10, 10, ease(t))) + "," + f(Math.sin(tm * 1.4 + ph) * 1.4 * wind) + ") rotate(" + f(Math.sin(tm * 1.1 + ph) * 2.5 * wind) + ")"));
       break;
     }
     case "ship": {
       svg = group(path("far", P([[-60, -12], [60, -12], [52, 2], [-52, 2]]) + " " + rect(-36, -22, 60, 10) + " " + rect(-8, -34, 14, 12))
         + path("lit", rect(-30, -19, 3, 3) + " " + rect(-20, -19, 3, 3) + " " + rect(-10, -19, 3, 3) + " " + rect(0, -19, 3, 3) + " " + rect(10, -19, 3, 3), key("w"))
         + path("line", "M-1,-34 V-62 M-30,-22 V-46"), key("g"));
-      mv.push((a, t, tm) => { tf(a, key("g"), "translate(" + f(lerp(-6, 6, t)) + "," + f(Math.sin(tm * 0.6) * 0.8) + ")"); op(a, key("w"), c.night || c.low ? 1 : 0.2); });
+      mv.push((a, t, tm) => { tf(a, key("g"), "translate(" + f(travels ? 0 : lerp(-6, 6, t)) + "," + f(Math.sin(tm * 0.6) * 0.8) + ")"); op(a, key("w"), c.night || c.low ? 1 : 0.2); });
       break;
     }
     case "bird": {
       const one = (x: number, y: number, s: number) => "M" + f(x - 5 * s) + "," + f(y) + " Q" + f(x - 2.5 * s) + "," + f(y - 3.5 * s) + " " + f(x) + "," + f(y) + " Q" + f(x + 2.5 * s) + "," + f(y - 3.5 * s) + " " + f(x + 5 * s) + "," + f(y) + " Q" + f(x) + "," + f(y - 1.2 * s) + " " + f(x - 5 * s) + "," + f(y) + " Z ";
       svg = group(path("fig", one(0, 0, 1.2) + one(-14, 6, 0.9) + one(11, 9, 0.8)), key("g"));
       const y0 = 26 + r() * 30;
-      mv.push((a, t, tm) => tf(a, key("g"), "translate(" + f(lerp(-40, 220, ease(t))) + "," + f(y0 + Math.sin(tm * 2) * 3 - t * 12) + ") scale(1," + f(0.7 + 0.3 * Math.abs(Math.sin(tm * 7))) + ")"));
+      const perch = 150 + r() * 40;
+      mv.push((a, t, tm, _e, p) => {
+        const v = travelAt(ev, p);
+        if (v == null) { tf(a, key("g"), "translate(" + f(lerp(-40, 220, ease(t))) + "," + f(y0 + Math.sin(tm * 2) * 3 - t * 12) + ") scale(1," + f(0.7 + 0.3 * Math.abs(Math.sin(tm * 7))) + ")"); return; }
+        // Flying off: up and away from where they were; landing is the same run backwards. Wings beat only in the air.
+        const air = Math.abs(v) > 0.01, x = perch + v * 230, y = y0 + 40 - Math.abs(v) * 70 + (air ? Math.sin(tm * 2) * 3 : 0);
+        tf(a, key("g"), "translate(" + f(x) + "," + f(y) + ") scale(1," + f(air ? 0.7 + 0.3 * Math.abs(Math.sin(tm * 9)) : 0.85) + ")");
+      });
       break;
     }
     case "car": {
@@ -145,12 +157,14 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
         + path("far", P([[-19, 0], [19, 0], [19, -8], [10, -8], [5, -15], [-9, -15], [-13, -8], [-19, -8]]))
         + path("bg2", P([[4, -9], [8, -9], [5, -13], [4, -13]]) + " " + P([[-8, -9], [2, -9], [2, -13], [-6, -13]]))
         + path("lit", rect(16, -7, 3, 2.4)) + path("fig", circle(-11, 0, 3.6) + " " + circle(11, 0, 3.6)), key("g"));
-      mv.push((a, t) => { tf(a, key("g"), "translate(" + f(lerp(-60, 30, ease(t))) + ",0)"); op(a, key("b"), c.night ? 0.9 : 0.2); });
+      mv.push((a, t) => { tf(a, key("g"), "translate(" + f(travels ? 0 : lerp(-60, 30, ease(t))) + ",0)"); op(a, key("b"), c.night ? 0.9 : 0.2); });
       break;
     }
     case "tower": {
       svg = path("far", P([[-8, 0], [8, 0], [5, -78], [-5, -78]])) + path("shade", P([[1, 0], [8, 0], [5, -78], [1, -78]])) + path("edge", P([[-9, -78], [9, -78], [0, -92]])) + path("lit", circle(0, -82, 2.8), key("l"))
-        + path("beam", "M0,0", key("b"), beamFill(id));
+        + path("beam", "M0,0", key("b"), beamFill(id)) + (ev.length ? path("line", "M0,0", key("r"), 'fill="none"') : "");
+      // A bell that rings: rings of sound spread from the belfry.
+      if (ev.length) mv.push((a, _t, tm, _e, p) => { const on = Math.abs(ringAt(ev, p, tm)) > 0; let d = ""; if (on) for (let i = 0; i < 3; i++) { const q = (tm * 0.9 + i / 3) % 1, rr = 6 + q * 22; d += "M" + f(-rr) + "," + f(-84 - rr * 0.2) + " Q0," + f(-84 - rr * 0.9) + " " + f(rr) + "," + f(-84 - rr * 0.2) + " "; } a.a(key("r")).setAttribute("d", d || "M0,0"); });
       mv.push((a, _t, tm) => {
         const ang = tm * 0.9, x = Math.cos(ang) * 150, w = 10;
         a.a(key("b")).setAttribute("d", c.night || c.low ? P([[0, -82], [x, -82 - w + Math.sin(ang) * 6], [x, -82 + w + Math.sin(ang) * 6]]) : "M0,0");
@@ -160,12 +174,14 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
     }
     case "fire": {
       svg = pool(id, 0, -10, 46, key("p")) + path("fig", P([[-14, 0], [12, -6], [14, -3], [-12, 3]]) + " " + P([[14, 0], [-12, -6], [-14, -3], [12, 3]])) + path("lit", "M0,0", key("f")) + path("key", "M0,0", key("k"));
-      mv.push((a, t, tm) => {
-        const h = lerp(10, 24, t) * (1 + (0.1 + 0.15 * c.a) * Math.sin(tm * 11) + 0.08 * Math.sin(tm * 23)), sw = Math.sin(tm * 4) * 2.5;
+      mv.push((a, t, tm, _e, p) => {
+        const lt = litAt(ev, p);
+        const h = (lt == null ? lerp(10, 24, t) : lerp(0, 24, lt)) * (1 + (0.1 + 0.15 * c.a) * Math.sin(tm * 11) + 0.08 * Math.sin(tm * 23)), sw = Math.sin(tm * 4) * 2.5;
+        if (lt != null) op(a, key("p"), lt);
         a.a(key("f")).setAttribute("d", "M-8,-2 C-10,-10 " + f(-3 + sw) + "," + f(-h * 0.6) + " " + f(sw) + "," + f(-h) + " C" + f(4 + sw) + "," + f(-h * 0.6) + " 10,-10 8,-2 Z");
         let sp = "";
         for (let i = 0; i < 4; i++) { const s = (tm * 0.7 + i / 4) % 1; sp += circle(Math.sin(i * 3 + tm) * 6, -h - s * 30, 0.8) + " "; }
-        a.a(key("k")).setAttribute("d", sp);
+        a.a(key("k")).setAttribute("d", h > 1 ? sp : "M0,0");
         a.a(key("p")).setAttribute("r", f(40 + 8 * Math.sin(tm * 9)));
       });
       break;
@@ -190,10 +206,21 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
     case "letter": svg = group(path("lit", P([[-8, 0], [8, -1], [8, -3], [-8, -2]])) + path("line", "M-5,-1.6 L5,-2.2"), key("g"));
       mv.push((a, _t, tm) => tf(a, key("g"), "rotate(" + f(Math.sin(tm * 0.5) * 1.5 * wind) + ")")); break;
     case "candle": {
-      svg = pool(id, 0, -16, 34, key("p")) + path("far", rect(-2.2, -13, 4.4, 13)) + path("lit", "M0,0", key("f"));
-      mv.push((a, t, tm) => {
-        const h = lerp(5, 10, t) * (1 + (0.08 + 0.1 * c.a) * Math.sin(tm * 9)), sw = Math.sin(tm * 3) * 1;
-        a.a(key("f")).setAttribute("d", "M0,-13 C-2.5,-15 " + f(-1 + sw) + "," + f(-13 - h * 0.6) + " " + f(sw) + "," + f(-13 - h) + " C" + f(1 + sw) + "," + f(-13 - h * 0.6) + " 2.5,-15 0,-13 Z");
+      const lights = litAt(ev, 0) !== null;
+      svg = pool(id, 0, -16, 34, key("p")) + path("far", rect(-2.2, -13, 4.4, 13)) + path("line", "M0,-13 v-2.4", "", 'fill="none"') + path("lit", "M0,0", key("f")) + (lights ? path("line", "M0,0", key("w"), 'fill="none"') : "");
+      mv.push((a, t, tm, _e, p) => {
+        const lt = litAt(ev, p);
+        const h = (lt == null ? lerp(5, 10, t) : 10 * lt) * (1 + (0.08 + 0.1 * c.a) * Math.sin(tm * 9)), sw = Math.sin(tm * 3) * 1;
+        a.a(key("f")).setAttribute("d", h < 0.3 ? "M0,0" : "M0,-13 C-2.5,-15 " + f(-1 + sw) + "," + f(-13 - h * 0.6) + " " + f(sw) + "," + f(-13 - h) + " C" + f(1 + sw) + "," + f(-13 - h * 0.6) + " 2.5,-15 0,-13 Z");
+        if (lt != null) {
+          op(a, key("p"), lt);
+          // A thread of smoke from the wick once it is out.
+          const sm = smokeAt(ev, p);
+          let d = "M0,0";
+          if (sm > 0) { const pts: string[] = []; for (let n = 0; n <= 6; n++) { const q = n / 6; pts.push(f(Math.sin(tm * 2 + q * 5) * q * 4) + "," + f(-15 - q * 26)); } d = "M" + pts.join(" L"); }
+          a.a(key("w")).setAttribute("d", d);
+          op(a, key("w"), sm * 0.8);
+        }
       });
       break;
     }
@@ -206,14 +233,14 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
     case "window": svg = ""; break;
     case "door": {
       svg = path("edge", rect(-15, -46, 30, 46)) + path("lit", rect(-12, -43, 24, 43), key("l")) + path("far", "M0,0", key("d"));
-      mv.push((a, t) => { const e = ease(seg(t, 0.15, 0.9)), w = lerp(24, 4, e); a.a(key("d")).setAttribute("d", P([[-12, -43], [-12 + w, -43 - e * 3], [-12 + w, e * 3], [-12, 0]])); op(a, key("l"), lerp(0.3, 1, e)); });
+      mv.push((a, t, _tm, _e, p) => { const o = openAt(ev, p), e = o ?? ease(seg(t, 0.15, 0.9)), w = lerp(24, 4, e); a.a(key("d")).setAttribute("d", P([[-12, -43], [-12 + w, -43 - e * 3], [-12 + w, e * 3], [-12, 0]])); op(a, key("l"), lerp(0.3, 1, e)); });
       break;
     }
     case "gate": {
       let bars = "";
       for (let i = 0; i < 6; i++) bars += rect(-15 + i * 6, -34, 1.6, 34) + " ";
       svg = path("far", rect(-19, -40, 4, 40) + " " + rect(15, -40, 4, 40)) + group(path("line", "M-15,-30 H15 M-15,-8 H15") + path("far", bars), key("g"));
-      mv.push((a, t) => tf(a, key("g"), "translate(-15,0) scale(" + f(1 - ease(seg(t, 0.3, 1)) * 0.6) + ",1) translate(15,0)"));
+      mv.push((a, t, _tm, _e, p) => tf(a, key("g"), "translate(-15,0) scale(" + f(1 - (openAt(ev, p) ?? ease(seg(t, 0.3, 1))) * 0.6) + ",1) translate(15,0)"));
       break;
     }
     case "flower": {
@@ -238,7 +265,10 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
       svg = path("edge", d) + path("line", "M-35,-6 L29,-78 M-35,-18 L29,-90");
       break;
     }
-    case "umbrella": svg = path("key", "M-20,-28 Q0,-46 20,-28 Q15,-31 10,-28 Q5,-31 0,-28 Q-5,-31 -10,-28 Q-15,-31 -20,-28 Z") + path("line", "M0,-38 V-2 q0,3 -3,3"); break;
+    case "umbrella":
+      svg = group(path("key", "M-20,-28 Q0,-46 20,-28 Q15,-31 10,-28 Q5,-31 0,-28 Q-5,-31 -10,-28 Q-15,-31 -20,-28 Z"), key("c")) + path("line", "M0,-38 V-2 q0,3 -3,3");
+      if (ev.length) mv.push((a, _t, _tm, _e, p) => { const o = openAt(ev, p) ?? 1; tf(a, key("c"), "translate(0,-38) scale(" + f(0.18 + 0.82 * o) + "," + f(0.6 + 0.4 * o) + ") translate(0,38)"); });
+      break;
     case "suitcase": svg = path("far", rect(-13, -17, 26, 17)) + path("line", "M-4,-17 v-3 h8 v3") + path("bg2", rect(-13, -10, 26, 1.6)); break;
     case "bicycle": svg = path("line", circle(-14, -9, 9) + " " + circle(14, -9, 9) + " M-14,-9 L-4,-20 L10,-20 L14,-9 M-4,-20 L0,-9 L10,-20 M-6,-24 h5 M10,-20 L9,-25 h4"); break;
     case "train": {
@@ -246,7 +276,7 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
       for (let i = 0; i < 4; i++) { const x = -120 + i * 60; cars += rect(x, -36, 56, 30) + " "; for (let w = 0; w < 5; w++) wins += rect(x + 5 + w * 10, -30, 6, 7) + " "; }
       svg = group(path("far", cars + P([[120, -36], [130, -30], [130, -6], [116, -6]])) + path("lit", wins, key("w")) + path("fig", circle(-110, -4, 4) + " " + circle(-60, -4, 4) + " " + circle(-10, -4, 4) + " " + circle(40, -4, 4) + " " + circle(90, -4, 4)), key("g"))
         + path("line", "M-180,0 H180");
-      mv.push((a, t) => { tf(a, key("g"), "translate(" + f(lerp(-140, 20, ease(t))) + ",0)"); op(a, key("w"), c.night || c.low ? 1 : 0.25); });
+      mv.push((a, t) => { tf(a, key("g"), "translate(" + f(travels ? 0 : lerp(-140, 20, ease(t))) + ",0)"); op(a, key("w"), c.night || c.low ? 1 : 0.25); });
       break;
     }
     case "fence": {
@@ -271,7 +301,7 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
     case "cat": svg = path("fig", "M-8,0 C-10,-6 -8,-12 -2,-12 L-1,-17 L2,-13 L5,-17 L6,-11 C9,-8 8,-2 6,0 Z") + path("line", "M0,0", key("t"));
       mv.push((a, _t, tm) => { const s = Math.sin(tm * 1.5) * 3; a.a(key("t")).setAttribute("d", "M-8,-1 C-14,-2 " + f(-16 + s) + ",-8 " + f(-13 + s) + ",-12"); }); break;
     case "horse": svg = group(path("fig", "M-20,-22 L10,-22 L16,-34 L22,-34 L24,-28 L18,-26 L16,-14 L15,0 L12,0 L11,-12 L-12,-12 L-14,0 L-17,0 L-18,-14 L-24,-12 L-22,-20 Z"), key("g"));
-      mv.push((a, t, tm) => tf(a, key("g"), "translate(" + f(lerp(-10, 10, t)) + "," + f(-Math.abs(Math.sin(tm * 1.2)) * 0.6) + ")")); break;
+      mv.push((a, t, tm, _e, p) => { const run = travels && Math.abs((travelAt(ev, p) ?? 0) % 1) > 0.01; tf(a, key("g"), "translate(" + f(travels ? 0 : lerp(-10, 10, t)) + "," + f(-Math.abs(Math.sin(tm * (run ? 9 : 1.2))) * (run ? 2.5 : 0.6)) + ")"); }); break;
   }
   return { svg, movers: mv };
 }

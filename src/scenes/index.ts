@@ -5,8 +5,8 @@ import type { Ctx } from "./helpers";
 import { SCENE_LIST } from "../stage/keywords";
 import { canvasScene } from "../vscenes/model";
 
-/** A scene draws one frame. t = the story beat (0..1, from scroll position), tm = seconds. */
-export type SceneFn = (c: Ctx, t: number, tm: number) => void;
+/** A scene draws one frame. t = the story beat (0..1, from scroll position), tm = seconds, p = the play clock of what happens. */
+export type SceneFn = (c: Ctx, t: number, tm: number, p?: number) => void;
 
 /** Hand-drawn canvas scenes; every other library scene is drawn from its vector version. */
 export const SCENES: Record<string, SceneFn> = {

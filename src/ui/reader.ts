@@ -10,7 +10,7 @@ import { engrave, flow, riso, stipple } from "../renderers/print";
 import { drawVector, isVector, makeVector } from "../renderers/vector";
 import { H, W, clamp, flicker } from "../scenes/helpers";
 import { sceneFn } from "../scenes";
-import { sceneLabel } from "../compose";
+import { sceneLabel, sceneTiming } from "../compose";
 import { beatIndexes, coverScene, hasOwnNumber, showsScene } from "../book/structure";
 import { trackSpecs } from "../compose/read";
 import type { Spec } from "../compose/spec";
@@ -85,7 +85,8 @@ function makeArt(scene: string, label: string, opts: { invert?: boolean; text?: 
   }
   if (isVector(style)) {
     const { wrap, vec } = makeVector(style, scene, label);
-    items.push({ scene, t: 1, vis: true, seed: items.length * 1.7, style, invert, vec, node: wrap });
+    const it: ArtItem = { scene, t: 1, vis: true, seed: items.length * 1.7, style, invert, vec, node: wrap };
+    items.push(it); replayOnTap(it);
     return wrap;
   }
   const wrap = el("div", "art");
@@ -104,8 +105,15 @@ function makeArt(scene: string, label: string, opts: { invert?: boolean; text?: 
     cv.width = W * sc; cv.height = H * sc; cv.setAttribute("role", "img"); cv.setAttribute("aria-label", label);
     wrap.appendChild(cv); it.cv = cv; it.out = cv.getContext("2d")!;
   }
-  items.push(it);
+  items.push(it); replayOnTap(it);
   return wrap;
+}
+
+/** A tap on a picture plays what happens in it again from the start. */
+function replayOnTap(it: ArtItem): void {
+  if (!sceneTiming(it.scene).total) return;
+  it.node.classList.add("plays");
+  it.node.addEventListener("click", () => { if (!pictureMoves()) return; it.born = performance.now(); wake(); });
 }
 
 function isBeat(b: Block, i: number): boolean {
@@ -241,7 +249,8 @@ export function renderBook(): void {
   blockIdx = blockEls.map((e) => +(e.getAttribute("data-b") || 0)); hint = 0;
 
   if ("IntersectionObserver" in window) {
-    io = new IntersectionObserver((es) => { es.forEach((e) => items.forEach((it) => { if (it.node === e.target) it.vis = e.isIntersecting; })); wake(); }, { rootMargin: "120px" });
+    // A picture that leaves the view starts again from the beginning when it comes back.
+    io = new IntersectionObserver((es) => { es.forEach((e) => items.forEach((it) => { if (it.node === e.target) { it.vis = e.isIntersecting; if (!e.isIntersecting) it.born = undefined; } })); wake(); }, { rootMargin: "120px" });
     items.forEach((it) => io!.observe(it.node));
     revealFallback();
   }
@@ -305,9 +314,15 @@ export function target(it: ArtItem): number {
   return clamp((vh - r.top) / (vh * 0.55 + r.height * 0.4));
 }
 
-export function draw(it: ArtItem, tm: number): void {
-  const S = state.settings, t = it.invert ? 1 - it.t : it.t;
-  if (it.vec) { drawVector(it.vec, it.style, it.scene, t, tm + it.seed); return; }
+/** The play clock of a picture: seconds since it began to play, 0 before, none when pictures are still. */
+function clock(it: ArtItem, still: boolean): number | undefined {
+  if (still || !pictureMoves()) return undefined;
+  return it.born == null ? 0 : (performance.now() - it.born) / 1000;
+}
+
+export function draw(it: ArtItem, tm: number, still = false): void {
+  const S = state.settings, t = it.invert ? 1 - it.t : it.t, p = clock(it, still);
+  if (it.vec) { drawVector(it.vec, it.style, it.scene, t, tm + it.seed, p); return; }
   if (it.photo && !it.src) {
     // A slow push-in as the beat arrives: the picture settles into place, it never jumps.
     const e = clamp(t), s = 1.12 - 0.12 * e, y = (1 - e) * 2.5;
@@ -318,7 +333,7 @@ export function draw(it: ArtItem, tm: number): void {
   if (it.style === "flow") { flow(it, t, tm + it.seed, pictureMoves()); return; }
   const c = it.src!;
   if (it.photo) drawPhoto(c, it.photo, t);
-  else sceneFn(it.scene)(c, t, tm + it.seed);
+  else sceneFn(it.scene)(c, t, tm + it.seed, p);
   if (S.light !== "off" && S.flicker && pictureMoves()) {
     const fl = flicker(tm);
     if (fl > 0) { c.fillStyle = "rgba(0,0,0," + fl + ")"; c.fillRect(0, 0, W, H); }
@@ -353,7 +368,7 @@ export function redrawAll(resetWidths = false): void {
 /** Every picture at its finished frame (print, snapshots). */
 export function finishAll(): void {
   readTokens(!darkNow());
-  items.forEach((it) => { it.t = it.invert ? 0 : 1; draw(it, 0); });
+  items.forEach((it) => { it.t = it.invert ? 0 : 1; draw(it, 0, true); });
 }
 export function resetWidths(): void { items.forEach((it) => { it.pw = 0; }); }
 export { tok };
@@ -381,6 +396,8 @@ function frame(now: number): void {
       items.forEach((it) => {
         if (!it.vis) return;
         const tg = target(it), eased = Math.abs(tg - it.t) >= 0.002;
+        // Well into view: what happens in it begins.
+        if (it.born == null && it.t >= 0.45) it.born = now;
         if (eased) { it.t += (tg - it.t) * 0.12; if (Math.abs(tg - it.t) < 0.002) it.t = tg; }
         const plainPhoto = !!it.photo && !it.src;
         // A settled canvas picture only needs a few frames a second (its grain, flicker and sway).

@@ -1,44 +1,38 @@
 // The landing page's drawing desk: a sentence in, a moving picture out. It uses the same reading
 // (compose/read.ts) and drawing (compose/draw.ts) as every book, so what a visitor sees here is what
 // their manuscript will get. Until the visitor types, a few lines write themselves to show the range.
-// One animation loop, stopped whenever the landing is hidden or off screen.
+// One player (renderers/player.ts): it stops whenever the landing is hidden or off screen.
 import { namedWords, readSpec } from "../compose/read";
 import { describe, encode, type Spec } from "../compose/spec";
 import { rowsHtml, rowsOf } from "./readout";
-import { drawVector, makeVector, type VecHandle } from "../renderers/vector";
+import { player, reducedMotion, type Player } from "../renderers/player";
 import type { Style } from "../types";
 import { cap } from "../text/strings";
 
 const LINES = [
-  "Smoke rose from the cottage chimney as the snow came down at dusk.",
-  "She waited on the quay at night while the waves crashed against the harbour wall.",
-  "A shooting star fell over the field, and the dog looked up.",
-  "The candle flickered on the kitchen table beside the unopened letter.",
-  "Gulls flew up from the beach as he ran along the shore in the wind.",
-  "In the autumn garden the leaves were falling around the old bench.",
+  "She opened the door and stepped out into the rain.",
+  "The train pulled into the station as the snow came down at dusk.",
+  "A bird flew up from the fence as he walked along the road.",
+  "The candle went out on the kitchen table.",
+  "He gave her the letter, and she read it by the window.",
+  "The sun rose over the sea and the gulls flew off the harbour wall.",
+  "They embraced on the platform as the train left.",
 ];
 
-const BEAT_MS = 2600;
-
-let mounted = false, style: Style = "cut", scene = "", line = "";
-let vec: VecHandle | null = null, born = 0, raf = 0, visible = true, typed = false;
+let mounted = false, style: Style = "cut", scene = "", line = "", typed = false;
+let pl: Player | null = null;
 let auto = { i: 0, pos: 0, wait: 0, timer: 0 };
-const still = (): boolean => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const still = reducedMotion;
 const $ = (id: string) => document.getElementById(id)!;
 
 function draw(text: string): void {
   line = text;
   const s = readSpec(text), id = encode(s);
   readout(text, s);
-  if (id === scene && vec) return;
+  if (id === scene) return;
   scene = id;
-  const plate = $("ldPlate");
-  const { wrap, vec: v } = makeVector(style, id, cap(describe(s)));
-  wrap.classList.add("ld-art");
-  plate.replaceChildren(wrap);
-  vec = v; born = performance.now();
-  if (still()) drawVector(vec, style, scene, 1, 4);
-  else start();
+  pl = pl || player($("ldPlate"), { beatMs: 2600, className: "ld-art" });
+  pl.set(style, id, cap(describe(s)));
 }
 
 /** What the sentence named, kind by kind, with the words that named it. */
@@ -46,13 +40,6 @@ function readout(text: string, s: Spec): void {
   $("ldRead").innerHTML = text.trim() ? rowsHtml(rowsOf(s, namedWords(text))) : "";
 }
 
-function frame(now: number): void {
-  raf = 0;
-  if (!vec || !visible || $("mkLanding").hidden || document.hidden) return;
-  drawVector(vec, style, scene, Math.min(1, (now - born) / BEAT_MS), now / 1000);
-  raf = requestAnimationFrame(frame);
-}
-function start(): void { if (!raf && !still()) raf = requestAnimationFrame(frame); }
 
 /* The lines that write themselves, until the visitor writes their own. */
 function tick(): void {
@@ -77,7 +64,7 @@ function setStyle(s: Style): void {
 }
 
 export function mountLanding(): void {
-  if (mounted) { start(); if (!typed && !auto.timer) tick(); return; }
+  if (mounted) { if (!typed && !auto.timer) tick(); return; }
   mounted = true;
   const input = $("ldLine") as HTMLInputElement;
   let deb = 0;
@@ -89,8 +76,8 @@ export function mountLanding(): void {
     const b = (e.target as HTMLElement).closest<HTMLElement>("button[data-style]");
     if (b) setStyle(b.dataset.style as Style);
   });
-  new IntersectionObserver(([en]) => { visible = en.isIntersecting; if (visible) start(); }).observe($("ldDesk"));
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) start(); });
+  // A click on the picture plays it again.
+  $("ldPlate").addEventListener("click", () => pl?.replay());
   if (still()) { input.value = LINES[0]; draw(LINES[0]); return; }
   draw("");
   auto.timer = window.setTimeout(tick, 700);
