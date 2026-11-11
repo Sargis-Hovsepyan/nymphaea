@@ -21,7 +21,7 @@ const IRREG: Record<string, string> = {
   heard: "hear", kept: "keep", knew: "know", made: "make", paid: "pay", sold: "sell", sought: "seek", taught: "teach", thought: "think",
   understood: "understand", withdrew: "withdraw", forgot: "forget", grew: "grow", drew: "draw", drawn: "draw", let: "let", set: "set",
   shut: "shut", cut: "cut", hit: "hit", quit: "quit", spread: "spread", burst: "burst", cast: "cast", shone: "shine", stuck: "stick",
-  clung: "cling", wound: "wind", fought: "fight", climbed: "climb", poured: "pour", danced: "dance", waved: "wave", bowed: "bow",
+  clung: "cling", dove: "dive", dived: "dive", sang: "sing", sung: "sing", spun: "spin", fed: "feed", laid: "lay", bit: "bite", froze: "freeze", frozen: "freeze", lost: "lose", won: "win", chose: "choose", swore: "swear", spat: "spit", slung: "sling", trod: "tread", bled: "bleed", shrank: "shrink", became: "become", overtook: "overtake", beheld: "behold", wove: "weave", spilt: "spill", leant: "lean", slew: "slay", wound: "wind", fought: "fight", climbed: "climb", poured: "pour", danced: "dance", waved: "wave", bowed: "bow",
 };
 
 /** Lemmas a suffix rule would get wrong, or forms that are not verbs here. */
@@ -63,42 +63,42 @@ function parse<K extends string>(src: string): Map<string, K> {
 
 /** A person's verbs, by the act they play. Two-word verbs come first in the reading (see PHRASAL). */
 export const FIG_VERBS = parse<FigKind>(`
-  go: walk stroll wander amble stride march trudge pace stalk saunter tramp hike limp stagger shuffle tiptoe trek roam follow approach advance proceed head return go come move step travel continue drift plod creep sneak edge;
-  run: run race rush hurry dash sprint bolt flee chase gallop scurry scramble charge tear dart hasten scamper jog;
-  enter: enter;
-  leave: leave depart exit;
+  go: walk stroll wander amble stride march trudge pace stalk saunter tramp hike limp stagger shuffle tiptoe trek roam follow approach advance proceed head return go come move step travel continue drift plod creep sneak edge climb clamber descend ascend swim wade crawl cycle ride trot skate ski patrol lead waddle hobble meander navigate journey;
+  run: run race rush hurry dash sprint bolt flee chase gallop scurry scramble charge dart hasten scamper jog;
+  enter: enter board;
+  leave: leave depart exit escape vanish disappear;
   cross: cross;
-  turn: turn spin whirl pivot swivel;
-  sit: sit perch settle slump;
-  rise: rise stand straighten;
-  lie: lie recline sprawl stretch;
-  kneel: kneel crouch squat stoop;
-  fall: fall collapse stumble trip tumble slip faint;
-  jump: jump leap hop vault bound skip spring;
+  turn: turn spin whirl pivot swivel twist;
+  sit: sit perch settle slump sink;
+  rise: rise stand straighten wake awake;
+  lie: lie recline sprawl stretch doze nap;
+  kneel: kneel crouch squat stoop bend duck prostrate;
+  fall: fall collapse stumble trip tumble slip faint crumple topple;
+  jump: jump leap hop vault bound skip spring dive plunge bounce;
   bow: bow curtsy curtsey;
-  handle: touch push pull press tug stroke pat rub brush pour stir shove wipe tap grip clutch;
-  open: open unlock unfold unlatch unbolt;
-  close: close shut slam lock latch fasten;
+  handle: touch push pull press tug stroke pat rub brush pour stir shove wipe tap grip clutch fold tie untie wrap button adjust smooth fumble caress squeeze carry drag rock comb wash dry iron pack unpack pet scratch tear rip crumple fiddle dial knead;
+  open: open unlock unfold unlatch unbolt unwrap unzip uncork unseal unbutton;
+  close: close shut slam lock latch fasten bolt zip seal;
   light: light kindle ignite strike;
   snuff: snuff extinguish douse quench;
-  knock: knock rap bang hammer pound;
-  take: take grab seize snatch pick gather collect fetch catch accept receive;
-  give: give hand offer pass deliver present return;
-  put: put place set lay;
+  knock: knock rap bang hammer pound kick;
+  take: take grab seize snatch pick gather collect fetch catch accept receive grasp pluck pocket;
+  give: give hand offer pass deliver present return feed lend pay sell serve bring show;
+  put: put place set lay hang stack bury hide;
   drop: drop;
-  throw: throw toss hurl fling cast;
-  raise: raise lift hoist;
-  wave: wave beckon signal;
-  point: point gesture indicate;
-  look: look gaze stare watch glance peer peek glare observe study regard squint;
-  drink: drink sip gulp swallow eat taste bite chew sup;
+  throw: throw toss hurl fling cast lob chuck;
+  raise: raise lift hoist brandish cheer;
+  wave: wave beckon signal salute applaud;
+  point: point gesture indicate aim;
+  look: look gaze stare watch glance peer peek glare observe study regard squint see notice spot search scan examine inspect check peep survey behold;
+  drink: drink sip gulp swallow eat taste bite chew sup munch nibble smoke puff inhale;
   read: read browse;
-  work: write sew knit paint draw dig row paddle play sweep scrub cook chop hammer type scribble sketch plant pull;
-  speak: speak say talk shout call whisper murmur reply answer ask tell sing yell scream sigh mutter announce explain argue plead pray;
+  work: write sew knit paint draw dig row paddle play sweep scrub cook chop hammer type scribble sketch plant pull bake fry boil wash clean mop polish sharpen slice cut peel carve build repair mend fix shovel plough plow harvest reap mow prune rake hoe water weed saw drill strum tune load unload haul heave fish count sort weave milk brew iron clap;
+  speak: speak say talk shout call whisper murmur reply answer ask tell sing yell scream sigh mutter announce explain argue plead pray listen hum chant recite preach lecture bargain haggle chat gossip mumble stammer groan moan gasp hiss whistle;
   nod: nod agree;
-  shake: shake;
-  weep: weep sob cry mourn grieve;
-  laugh: laugh giggle chuckle grin smile beam;
+  shake: shake shrug shiver tremble;
+  weep: weep sob cry mourn grieve wail whimper;
+  laugh: laugh giggle chuckle grin smile beam snicker cackle;
 `);
 
 /** Two figures together, when the subject is two people or "they". */
@@ -113,12 +113,12 @@ export const PAIR_VERBS = parse<PairKind>(`
 export const THING_VERBS = parse<ThingKind>(`
   open: open swing creak yawn;
   close: close shut slam bang;
-  arrive: arrive come pull draw roll approach appear land settle alight return dock;
-  depart: leave depart go pull set sail drive fly vanish disappear recede escape;
-  pass: pass cross rumble roar rattle speed race glide sweep drift float;
-  light: catch flare blaze kindle burn glow brighten;
-  die: die fade dim;
-  fall: fall drop slip tumble topple crash shatter smash spill;
+  arrive: arrive come pull draw roll approach appear land settle alight return dock touch park stop halt screech swoop moor anchor berth emerge;
+  depart: leave depart go pull set sail drive fly vanish disappear recede escape flee bolt launch soar steam;
+  pass: pass cross rumble roar rattle speed race glide sweep drift float trot gallop canter run dash dart scurry scamper swim paddle circle cruise chug splash zoom whizz whiz hurtle thunder cycle wander walk stroll plod trudge move slide slither crawl creep prowl stalk patrol wheel;
+  light: catch flare blaze kindle burn glow brighten spark shine twinkle gleam;
+  die: die fade dim sputter gutter;
+  fall: fall drop slip tumble topple crash shatter smash spill tip overturn;
   ring: ring chime strike toll peal sound;
 `);
 
@@ -168,7 +168,7 @@ export const PHRASAL: Record<string, { fig?: FigKind; thing?: ThingKind; to?: "u
   "fly off": { thing: "depart" }, "fly away": { thing: "depart" }, "fly up": { thing: "depart" }, "take off": { thing: "depart" }, "take flight": { thing: "depart" },
   "go by": { thing: "pass" }, "go past": { thing: "pass" }, "rush past": { thing: "pass" }, "roll by": { thing: "pass" }, "rush by": { thing: "pass" },
   "blow out": { fig: "snuff", thing: "die" }, "put out": { fig: "snuff", thing: "die" }, "go dark": { thing: "die" }, "die out": { thing: "die" },
-  "die down": { thing: "die" }, "burn out": { thing: "die" }, "flicker out": { thing: "die" }, "sputter out": { thing: "die" }, "gutter out": { thing: "die" },
+  "die down": { thing: "die" }, "burn out": { thing: "die" }, "burn down": { thing: "die" }, "burn low": { thing: "die" }, "flicker out": { thing: "die" }, "sputter out": { thing: "die" }, "gutter out": { thing: "die" },
   "come on": { thing: "light" }, "flare up": { thing: "light" }, "blaze up": { thing: "light" }, "catch fire": { thing: "light" }, "burst open": { thing: "open" },
   "swing open": { thing: "open" }, "fly open": { thing: "open" }, "creak open": { thing: "open" }, "swing shut": { thing: "close" }, "slam shut": { thing: "close" },
   "bang shut": { thing: "close" }, "click shut": { thing: "close" }, "pick up": { fig: "take" }, "put down": { fig: "put" }, "set down": { fig: "put" },
@@ -177,8 +177,17 @@ export const PHRASAL: Record<string, { fig?: FigKind; thing?: ThingKind; to?: "u
   "look back": { fig: "turn" }, "look round": { fig: "look" }, "look around": { fig: "look" }, "climb up": { fig: "go", to: "up" },
   "climb down": { fig: "go", to: "down" }, "burst into": { fig: "weep" }, "break down": { fig: "weep" }, "shake hands": { fig: "speak" },
   "wave goodbye": { fig: "wave" },
+  "switch on": { fig: "light", thing: "light" }, "turn on": { fig: "light", thing: "light" }, "switch off": { fig: "snuff", thing: "die" }, "turn off": { fig: "snuff", thing: "die" },
+  "touch down": { thing: "arrive" }, "lift off": { thing: "depart" }, "speed off": { fig: "run", thing: "depart" }, "speed away": { fig: "run", thing: "depart" }, "pull over": { thing: "arrive" },
+  "climb out": { fig: "leave" }, "climb in": { fig: "enter" }, "get in": { fig: "enter" }, "get out": { fig: "leave" }, "get off": { fig: "leave" }, "get on": { fig: "enter" },
+  "jump up": { fig: "rise" }, "spring up": { fig: "rise" }, "leap up": { fig: "rise" }, "wake up": { fig: "rise" }, "lean out": { fig: "look" }, "lean in": { fig: "bow" }, "lean over": { fig: "bow" },
+  "slip into": { fig: "go" }, "slip out": { fig: "leave" }, "sneak out": { fig: "leave" }, "storm out": { fig: "leave" }, "storm off": { fig: "go", to: "ahead" },
+  "head off": { fig: "go", to: "ahead" }, "head out": { fig: "leave" }, "hurry off": { fig: "run", to: "ahead" }, "hurry away": { fig: "run", away: true }, "rush out": { fig: "leave" },
+  "dash off": { fig: "run", to: "ahead" }, "gallop off": { fig: "run", thing: "depart" }, "gallop away": { fig: "run", thing: "depart" }, "trot off": { thing: "depart" },
+  "fly in": { thing: "arrive" }, "fly down": { thing: "arrive" }, "swoop down": { thing: "arrive" }, "sail away": { thing: "depart" }, "sail off": { thing: "depart" },
+  "cry out": { fig: "speak" }, "pour out": { fig: "leave" }, "pour in": { fig: "enter" }, "rush outside": { fig: "leave" }, "run outside": { fig: "leave" }, "throw back": { fig: "look", to: "up" }, "flicker on": { thing: "light" }, "blink on": { thing: "light" }, "call out": { fig: "speak" }, "shout out": { fig: "speak" }, "break off": { fig: "take" }, "tear up": { fig: "handle" },
 };
-export const PARTICLES = new Set(["down", "up", "out", "in", "into", "inside", "outside", "off", "away", "around", "round", "back", "over", "by", "past", "on", "open", "shut", "fire", "flight", "dark", "for", "hands", "goodbye"]);
+export const PARTICLES = new Set(["down", "up", "out", "in", "into", "inside", "outside", "off", "away", "around", "round", "back", "over", "by", "past", "on", "open", "shut", "fire", "flight", "dark", "for", "hands", "goodbye", "low"]);
 
 /** Idioms that look like acts but are not ("fell in love", "gave up"): the verb and the next word. */
 export const IDIOM = new Set([

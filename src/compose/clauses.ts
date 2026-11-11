@@ -10,6 +10,7 @@
 // bench" is how she is, "she sat down" is something she does. Pure; the lexicons are passed in.
 import type { Prop } from "./spec";
 import type { FigKind, PairKind, SkyKind, ThingKind } from "./acts";
+import { isGroup, personOf } from "./people";
 import { FIG_VERBS, IDIOM, IT_WEATHER, PAIR_VERBS, PARTICLES, PHRASAL, SKY_VERBS, SLOW, SUDDEN, THING_VERBS, lemma } from "./verbs";
 
 /** A word of the passage: lower case, as written, how much it counts (1 here and now), the punctuation before it. */
@@ -30,7 +31,14 @@ export interface RawAct {
   /** The words that named the act, as written (the verb and its particle). */
   words: string[];
 }
-export interface Lexicon { propOf(w: string, next?: string): Prop | null; isName(raw: string): boolean }
+export interface Lexicon {
+  propOf(w: string, next?: string): Prop | null;
+  isName(raw: string): boolean;
+  /** The burning thing the passage names (a cigarette, a candle), which "the flame" and "the ember" then mean. */
+  burner?: Prop | null;
+}
+/** Words for the burning part of something: they mean whatever burns in the passage. */
+const FLAME = new Set(["flame", "flames", "ember", "embers", "tip", "glow"]);
 
 const DET = new Set("the a an this that these those his her their my our your its one two three some every each another no".split(" "));
 const POSS = new Set("his her their my our your its".split(" "));
@@ -43,13 +51,6 @@ const TOGETHER = new Set(["as", "while", "when"]);
 const PRON: Record<string, Ref["g"] | "group" | "it"> = { i: "i", he: "m", she: "f", we: "group", they: "group", you: "?", it: "it" };
 const OBJ_PRON: Record<string, Ref["g"] | "group"> = { me: "i", him: "m", her: "f", us: "group", them: "group", you: "?" };
 const SELF = new Set(["myself", "himself", "herself", "themselves", "ourselves", "yourself", "itself"]);
-const PERSON = new Set(("man woman girl boy child stranger friend mother father son daughter husband wife king queen lady gentleman lad lass baby "
-  + "doctor sailor priest soldier farmer fisherman driver nurse teacher waiter waitress guard officer captain servant maid widow nun monk "
-  + "traveller traveler visitor guest neighbour neighbor sister brother aunt uncle grandmother grandfather grandma grandpa granny old figure "
-  + "poet painter musician fiddler shepherd hunter rider dancer singer stranger beggar thief detective inspector constable clerk boatman ferryman").split(" "));
-const FEMALE = new Set("woman girl mother daughter wife queen lady lass maid widow nun sister aunt grandmother grandma granny waitress".split(" "));
-const MALE = new Set("man boy father son husband king gentleman lad monk brother uncle grandfather grandpa waiter".split(" "));
-const GROUP = new Set("people crowd children friends soldiers villagers guests strangers men women girls boys family couple lovers pair sailors travellers travelers dancers everyone everybody both".split(" "));
 const SKY_NOUN: Record<string, string> = {
   sun: "sun", sunlight: "sun", moon: "moon", night: "night", dark: "dark", darkness: "darkness", dusk: "dusk", twilight: "dusk", dawn: "dawn",
   day: "day", daylight: "day", morning: "morning", star: "star", stars: "star", rain: "rain", downpour: "rain", drizzle: "rain", snow: "snow",
@@ -57,7 +58,7 @@ const SKY_NOUN: Record<string, string> = {
   cloud: "cloud", clouds: "cloud", lightning: "lightning", thunder: "thunder", sky: "cloud",
 };
 /** Nouns that name a drawn thing only here, in a subject or an object. */
-const EXTRA_PROP: Record<string, Prop> = { lights: "lamp", light: "lamp", flame: "candle", flames: "fire", bell: "tower", bells: "tower", bus: "car", taxi: "car", cab: "car", carriage: "train", cart: "car", wagon: "car", envelope: "letter", note: "letter", mug: "cup", bottle: "glass", tea: "cup", coffee: "cup", wine: "glass", plane: "bird" };
+const EXTRA_PROP: Record<string, Prop> = { lights: "lamp", light: "lamp", flame: "candle", flames: "fire", bell: "tower", bells: "tower", bus: "car", taxi: "car", cab: "car", carriage: "train", cart: "car", wagon: "car", envelope: "letter", note: "letter", mug: "cup", bottle: "glass", tea: "cup", coffee: "cup", wine: "glass" };
 const PREP_DIR: Record<string, RawAct["dir"]> = {
   to: "to", toward: "to", towards: "to", at: "to", into: "into", onto: "to", for: "to", through: "into", inside: "into",
   from: "away", away: "away", out: "ahead", outside: "ahead", off: "ahead", across: "across", over: "across", past: "across", along: "across", back: "behind",
@@ -67,6 +68,8 @@ const STATE = new Set(["sit", "lie", "stand", "settle", "perch", "slump", "recli
 
 /** Verbs that act only with their particle ("got up", "blew out"). */
 const PHRASAL_HEADS = new Set(Object.keys(PHRASAL).map((k) => k.split(" ")[0]));
+/** "Kissed her forehead", "took her hand": an act on her, not on a thing of hers. */
+const BODY = new Set("hand hands forehead cheek cheeks face lips mouth neck shoulder shoulders arm arms hair head brow fingers wrist back".split(" "));
 /** Small words that end a noun phrase rather than start one. */
 const FUNC = new Set("on in at by with and as then under near beside again goodbye gently softly once twice hard back too there here".split(" "));
 const isAdverb = (w: string) => w.endsWith("ly") && w.length > 4 && w !== "only" && w !== "early";
@@ -78,7 +81,7 @@ interface Clause { words: Word[]; with: boolean; sentence: number }
 function clauses(words: Word[], lex: Lexicon): Clause[] {
   const out: Clause[] = [];
   let cur: Word[] = [], withNext = false, sentence = 0, curWith = false;
-  const person = (x: Word | undefined) => !!x && (lex.isName(x.raw) || PRON[x.w] != null || PERSON.has(x.w));
+  const person = (x: Word | undefined) => !!x && (lex.isName(x.raw) || PRON[x.w] != null || personOf(x.w) != null);
   const flush = () => { if (cur.length) out.push({ words: cur, with: curWith, sentence }); cur = []; };
   words.forEach((x, i) => {
     if (/[.!?;:]/.test(x.br)) { flush(); sentence++; curWith = false; withNext = false; }
@@ -100,7 +103,7 @@ export function readActs(words: Word[], lex: Lexicon): { acts: RawAct[]; refs: R
   const refs: Ref[] = [], acts: RawAct[] = [];
   let lastSubj: Subj | null = null, lastThing: Prop | null = null, lastSentence = -1;
   /** The thing a noun names; a two-word name ("fire escape") can block it. */
-  const propOf = (w: string, next = ""): Prop | null => lex.propOf(w, next) || (lex.propOf(w) ? null : EXTRA_PROP[w] || null);
+  const propOf = (w: string, next = ""): Prop | null => (lex.burner && FLAME.has(w) ? lex.burner : null) || lex.propOf(w, next) || (lex.propOf(w) ? null : EXTRA_PROP[w] || null);
   const refByName = (name: string) => { let i = refs.findIndex((r) => r.name === name); if (i < 0) { refs.push({ name, g: "?" }); i = refs.length - 1; } return i; };
   /**
    * A pronoun: first someone already known to be that ("her" two words back makes "she" her), the
@@ -140,7 +143,12 @@ export function readActs(words: Word[], lex: Lexicon): { acts: RawAct[]; refs: R
       if (s) { subj = s.subj; it = s.it; vi = j; neg = n; modal = m; break; }
       if (k < 0 && lastSubj && !PRON[x.w]) { subj = lastSubj; vi = j; neg = n; modal = m; break; }
     }
-    if (vi < 0 || !subj) continue;
+    if (vi < 0 || !subj) {
+      // "She leaned out of the window and waved": the verb is unknown, but she is still the one acting next.
+      const k = W.findIndex((x, n) => n < 3 && (PRON[x.w] === "f" || PRON[x.w] === "m" || PRON[x.w] === "i" || PRON[x.w] === "group" || lex.isName(x.raw) || personOf(x.w) != null || isGroup(x.w)));
+      if (k >= 0 && W.length > k + 1) { const s = subjectAt(W, k); if (s && s.subj.t !== "thing" && s.subj.t !== "sky") lastSubj = s.subj; }
+      continue;
+    }
     const v = W[vi];
     if (neg || modal || v.weight < 1) { lastSubj = subj; continue; }
     const lems = lemma(v.w);
@@ -151,6 +159,8 @@ export function readActs(words: Word[], lex: Lexicon): { acts: RawAct[]; refs: R
     const phr = (fam: "fig" | "thing") => {
       for (const l of lems) for (const pp of [p1, p2]) {
         if (!pp || !PARTICLES.has(pp.w)) continue;
+        // "Picked it up", "burned itself out"; but "walked hand in hand" is not "walked in".
+        if (pp === p2 && !(OBJ_PRON[p1.w] || p1.w === "it" || SELF.has(p1.w))) continue;
         const e = PHRASAL[l + " " + pp.w];
         if (e && e[fam]) return { e, kind: e[fam]!, part: pp };
       }
@@ -208,6 +218,11 @@ export function readActs(words: Word[], lex: Lexicon): { acts: RawAct[]; refs: R
           // A state ("she sat on the bench") is a pose, not an act.
           if (l && !STATE.has(l)) kind = FIG_VERBS.get(l);
         }
+        // "Slipped it under the door": a thing slipped is put, not a fall.
+        if (kind === "fall" && o.obj && o.obj.t === "thing") kind = "put";
+        // With nothing to hide or gather, a person hides (crouches) or gathers (comes together).
+        if (!o.obj && lems.includes("hide")) kind = "kneel";
+        if ((!o.obj || subj.t === "all") && (lems.includes("gather") || lems.includes("collect"))) kind = "go";
         if (kind) {
           act = { subj, fam: "fig", kind, ...base, words: ph ? [v.raw, ph.part.raw] : [v.raw] };
           if (o.obj) act.obj = o.obj;
@@ -244,9 +259,9 @@ export function readActs(words: Word[], lex: Lexicon): { acts: RawAct[]; refs: R
     }
     // A noun phrase: up to two words before the noun, the first a determiner or nothing.
     if (SKY_NOUN[x.w]) return { subj: { t: "sky" }, it: false };
-    if (GROUP.has(x.w)) return { subj: { t: "all", refs: group() }, it: false };
-    if (PERSON.has(x.w)) {
-      const g: Ref["g"] = FEMALE.has(x.w) ? "f" : MALE.has(x.w) ? "m" : "?";
+    if (isGroup(x.w)) return { subj: { t: "all", refs: group() }, it: false };
+    const g = personOf(x.w);
+    if (g) {
       // "The old man", "a woman": a new person unless one like them was just named.
       return { subj: { t: "fig", ref: refByPron(g) }, it: false };
     }
@@ -272,13 +287,16 @@ export function readActs(words: Word[], lex: Lexicon): { acts: RawAct[]; refs: R
       if (SELF.has(x.w)) continue;
       if (x.w === "it" && lastThing) { const r = found({ t: "thing", prop: lastThing }, dir); if (r) return r; continue; }
       // "Her letter" is hers; "kissed her on the bridge" is her.
-      if (x.w === "her" && nx && !nx.br && !ditransitive && !PREP_DIR[nx.w] && !FUNC.has(nx.w)) continue;
+      if (x.w === "her" && nx && !nx.br && !ditransitive && !PREP_DIR[nx.w] && !FUNC.has(nx.w) && !BODY.has(nx.w)) continue;
+      // "She threw back her head": her own.
+      if (x.w === "her" && nx && BODY.has(nx.w) && me >= 0 && refs[me] && refs[me].g === "f") continue;
       const op = OBJ_PRON[x.w];
       if (op && op !== "group") { const r = refByPron(op, me); if (r !== me) return { obj: { t: "fig", ref: r }, dir }; continue; }
-      if (thing && x.w !== "to") { if (!lex.isName(x.raw) && !PERSON.has(x.w)) continue; }
+      if (thing && x.w !== "to") { if (!lex.isName(x.raw) && !personOf(x.w)) continue; }
       // A name after "to" or "into" is often a place ("walked to London"): a person only if already met, or given to.
       if (lex.isName(x.raw) && (refs.some((r) => r.name === x.raw) || !dir || (ditransitive && dir === "to"))) return { obj: { t: "fig", ref: refByName(x.raw) }, dir };
-      if (PERSON.has(x.w) && j > from) return { obj: { t: "fig", ref: refByPron(FEMALE.has(x.w) ? "f" : MALE.has(x.w) ? "m" : "?", me) }, dir };
+      const pg = personOf(x.w);
+      if (pg && j > from) return { obj: { t: "fig", ref: refByPron(pg, me) }, dir };
       const p = propOf(x.w, nx ? nx.w : "");
       if (p) { const r = found({ t: "thing", prop: p }, dir); if (r) return r; continue; }
       if (SKY_NOUN[x.w] && (x.w === "sky" || x.w.startsWith("star") || x.w === "moon" || x.w === "sun" || x.w === "clouds")) return { obj: { t: "up" }, dir };

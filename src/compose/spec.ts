@@ -32,7 +32,7 @@ export const PROPS = [
   "tree", "house", "lamp", "boat", "bird", "car", "tower", "fire", "table", "cup", "book", "candle",
   "door", "flower", "bench", "dog", "cat", "horse", "bridge", "window",
   "bed", "chair", "shelf", "clock", "mirror", "stairs", "piano", "letter", "glass", "umbrella",
-  "suitcase", "bicycle", "train", "ship", "fence", "gate", "well", "grave", "rock", "tent",
+  "suitcase", "bicycle", "train", "ship", "fence", "gate", "well", "grave", "rock", "tent", "cigarette",
 ] as const;
 
 /** Motion the passage names, acted out on top of the scene: things falling, smoke rising, birds
@@ -85,7 +85,7 @@ export const isIndoor = (p: Place): boolean => INDOORS.includes(p);
 export const isWater = (p: Place): boolean => WATERS.includes(p);
 
 /** Small things that need a surface to sit on (a table, a bench, a ledge). */
-export const SMALL: readonly Prop[] = ["cup", "book", "candle", "letter", "glass"];
+export const SMALL: readonly Prop[] = ["cup", "book", "candle", "letter", "glass", "cigarette"];
 /** Things that only belong outside. */
 export const OUTDOOR_ONLY: readonly Prop[] = ["tree", "house", "boat", "car", "tower", "horse", "bridge", "train", "ship", "fence", "gate", "well", "grave", "rock", "tent", "bicycle", "bird"];
 /** Things that float. */
@@ -241,7 +241,7 @@ const PROP_WORDS: Record<Prop, string> = {
   dog: "a dog", cat: "a cat", horse: "a horse", bridge: "a bridge", window: "a window",
   bed: "a bed", chair: "a chair", shelf: "shelves", clock: "a clock", mirror: "a mirror", stairs: "stairs", piano: "a piano",
   letter: "a letter", glass: "a glass", umbrella: "an umbrella", suitcase: "a suitcase", bicycle: "a bicycle", train: "a train",
-  ship: "a ship", fence: "a fence", gate: "a gate", well: "a well", grave: "a grave", rock: "rocks", tent: "a tent",
+  ship: "a ship", fence: "a fence", gate: "a gate", well: "a well", grave: "a grave", rock: "rocks", tent: "a tent", cigarette: "a cigarette",
 };
 const FX_WORDS: Record<Fx, string> = {
   fall: "things falling", rise: "smoke rising", fly: "birds taking flight", flicker: "flickering light", glow: "lights glowing",

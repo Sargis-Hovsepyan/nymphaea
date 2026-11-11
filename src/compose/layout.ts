@@ -22,10 +22,11 @@ export const SIZE: Record<Prop, { w: number; h: number; real: number }> = {
   glass: { w: 8, h: 13, real: 0.08 }, umbrella: { w: 40, h: 42, real: 0.75 }, suitcase: { w: 26, h: 19, real: 0.36 }, bicycle: { w: 46, h: 26, real: 0.6 },
   train: { w: 240, h: 40, real: 2.2 }, ship: { w: 120, h: 62, real: 6 }, fence: { w: 340, h: 14, real: 0.6 }, gate: { w: 36, h: 40, real: 0.9 },
   well: { w: 36, h: 40, real: 0.75 }, grave: { w: 16, h: 24, real: 0.5 }, rock: { w: 36, h: 18, real: 0.45 }, tent: { w: 52, h: 36, real: 1.1 },
+  cigarette: { w: 12, h: 2, real: 0.02 },
 };
 
 /** Things a figure can hold, the most telling first. */
-export const HELD: readonly Prop[] = ["umbrella", "candle", "letter", "book", "cup", "glass"];
+export const HELD: readonly Prop[] = ["umbrella", "cigarette", "candle", "letter", "book", "cup", "glass"];
 /** Acts done with something already in the hand, and acts that pick something up. */
 const WITH_HELD = new Set(["put", "drop", "throw", "raise", "drink", "read", "give"]);
 /** Acts a hand does to a thing where it stands: the figure is placed within reach of it. */
@@ -35,7 +36,7 @@ export const ANCHOR: Partial<Record<Prop, [number, number]>> = {
   door: [8, -22], gate: [0, -24], candle: [0, -15], fire: [0, -8], lamp: [0, -52], cup: [0, -7], glass: [0, -7], letter: [0, -2], book: [0, -3],
   clock: [0, -9], umbrella: [0, -22], suitcase: [0, -18], piano: [0, -22], table: [0, -27], bench: [0, -11], chair: [0, -22], bed: [0, -14],
   tree: [0, -34], horse: [0, -24], dog: [0, -10], cat: [0, -8], bicycle: [0, -20], flower: [0, -14], mirror: [0, -19], shelf: [0, -40],
-  fence: [0, -11], well: [0, -14], grave: [0, -16], rock: [0, -12], window: [0, -32], house: [0, -10], tent: [0, -14],
+  fence: [0, -11], well: [0, -14], grave: [0, -16], rock: [0, -12], window: [0, -32], house: [0, -10], tent: [0, -14], cigarette: [5, -1],
 };
 /** The acts of figure i (its own, everyone's, the pair's). */
 export const actsOf = (acts: readonly Act[] | undefined, i: number): Act[] => (acts || []).filter((a) => a.by === i || a.by === ALL || (a.by === PAIR && i < 2) || ((a.kind === "give" || a.kind === "greet") && figOf(a.to) === i));
@@ -221,7 +222,7 @@ export function layout(spec: Spec): Layout {
       const p = named || HELD.find((q) => kept.includes(q) && !taken.has(q) && q !== held);
       if (p) { fg.hold = p; if (i === 0) held = p; }
     });
-    const hands = HELD.filter((p) => kept.includes(p) && !taken.has(p) && (p === "umbrella" || s.pose === "reach" || !surface));
+    const hands = HELD.filter((p) => kept.includes(p) && !taken.has(p) && (p === "umbrella" || p === "cigarette" || s.pose === "reach" || !surface));
     if (!held && hands.length && !figs[0].hold) { held = hands[0]; const f0 = figs[0]; f0.hold = held; if (f0.pose === "stand" || f0.pose === "look") f0.pose = "reach"; }
     // Things taken, and things handed over, are drawn in the hand that ends up with them.
     acts.forEach((a) => {

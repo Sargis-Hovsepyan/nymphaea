@@ -143,7 +143,7 @@ function plan(spec: Spec): Plan {
       let held = "";
       heldList.forEach((p, hn) => {
         const z = SIZE[p], sc = p === "letter" || p === "book" ? 14 / z.w : z.real * 100 / z.h;
-        const hb = thing(p, 90 + n * 4 + hn, "§", { ...c, r: rng(s.seed * 17 + n + hn) });
+        const hb = thing(p, 90 + n * 4 + hn, "§", { ...c, r: rng(s.seed * 17 + n + hn), ev: thingEvents(tl, s.props.indexOf(p)) });
         mv.push(...hb.movers);
         held += group(group(hb.svg, "", "scale(" + f(sc) + ") translate(0," + (p === "umbrella" ? 14 : 1) + ")"), k + "o" + hn, "translate(" + HAND.x + "," + HAND.y + ")", it.hold === p ? "" : 'style="opacity:0"');
       });

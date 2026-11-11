@@ -13,41 +13,42 @@ import type { Block } from "../types";
 import { hash, moodOf } from "../stage/mood";
 import { stem } from "../stage/stem";
 import { locate, type Hit } from "../stage/locate";
+import { isGroup, personOf } from "./people";
 import { readActs, type RawAct, type Ref, type Word } from "./clauses";
 import { ALL, OFF_AHEAD, OFF_BEHIND, PAIR, SKY, THING0, TO_FIG0, TO_NONE, TO_THING0, UP, DOWN, fitActs, type Act, type FigKind } from "./acts";
 import { FX, MAX_PROPS, PLACES, POSES, PROPS, SEASONS, SKIES, TIMES, isIndoor, type Place, type Pose, type Fx, type Prop, type Season, type Shot, type Sky, type Spec, type Time } from "./spec";
 
 const PLACE_LEX: Record<Place, string> = {
-  room: "room rooms wall walls ceiling floor sofa couch apartment flat inside indoors curtain curtains attic cellar parlour parlor lounge",
-  kitchen: "kitchen kitchens stove oven sink cupboard pantry kettle",
-  bedroom: "bedroom bedrooms bed beds pillow pillows sheets blanket blankets mattress",
-  study: "study library desk office bookshelf bookshelves bookcase",
-  hall: "hall hallway corridor stairs staircase landing upstairs downstairs foyer entrance banister",
-  cafe: "cafe café cafes bar bars restaurant restaurants diner pub tavern inn waiter waitress counter",
-  church: "church churches chapel cathedral altar pew pews nave priest choir",
-  city: "city cities street streets avenue building buildings traffic taxi taxis subway metro downtown skyline neon sidewalk pavement alley alleys block blocks crosswalk tram bus",
-  station: "station stations platform platforms railway train trains tracks carriage carriages ticket",
-  village: "village villages town towns cottage cottages hamlet marketplace",
-  garden: "garden gardens hedge hedges fountain lawn greenhouse vine vines orchard",
-  road: "road roads highway path paths journey drive drove driving travel travelled traveled miles horizon track motorway",
-  field: "campfire bonfire field fields meadow meadows grass wheat farm farms pasture hay barn harvest prairie plain plains crop crops",
-  hill: "hill hills hillside hilltop slope slopes moor moors heath downs",
-  forest: "forest forests woodland wood woods tree trees pine pines oak oaks branch branches moss undergrowth clearing grove trail fern ferns thicket",
-  mountain: "mountain mountains peak peaks summit cliff cliffs ridge valley crag glacier pass",
-  river: "river rivers stream streams creek brook bank banks canal ferry current",
-  lake: "lake lakes pond ponds loch reeds",
+  room: "room rooms wall walls ceiling floor sofa couch apartment flat inside indoors curtain curtains attic cellar parlour parlor lounge majlis salon classroom ward cell prison jail studio bathroom balcony carpet rug floorboards mantelpiece wardrobe armchair living",
+  kitchen: "kitchen kitchens stove oven sink cupboard pantry kettle fridge refrigerator dishes plates pots pans saucepan larder",
+  bedroom: "bedroom bedrooms bed beds pillow pillows sheets blanket blankets mattress cradle crib duvet nightstand",
+  study: "study library desk office bookshelf bookshelves bookcase laptop computer typewriter keyboard screen files paperwork classroom",
+  hall: "hall hallway corridor stairs staircase landing upstairs downstairs foyer entrance banister lobby palace throne ballroom theatre theater stage auditorium museum gallery hospital lift elevator mosque courtroom",
+  cafe: "cafe café cafes bar bars restaurant restaurants diner pub tavern inn waiter waitress counter coffeehouse teahouse canteen bistro nightclub club",
+  church: "church churches chapel cathedral altar pew pews nave priest choir monastery abbey cloister temple shrine synagogue organ",
+  city: "city cities hotel hotels mall school street streets avenue building buildings traffic taxi taxis subway metro downtown skyline neon sidewalk pavement alley alleys block blocks crosswalk tram bus square plaza rooftop rooftops tower skyscraper skyscrapers apartment police siren sirens shop shops store stores parking lights",
+  station: "station stations platform platforms railway train trains tracks carriage carriages ticket airport terminal departures runway subway underground",
+  village: "village villages bakery town towns cottage cottages hamlet marketplace souq souk bazaar market stall stalls yard farmyard",
+  garden: "garden gardens hedge hedges fountain lawn greenhouse vine vines orchard courtyard patio terrace balcony flowerbed roses tulips",
+  road: "road roads highway path paths journey drive drove driving travel travelled traveled miles horizon track motorway street lane freeway petrol gas border checkpoint crossroads roadside",
+  field: "campfire bonfire field fields meadow meadows grass wheat farm farms pasture hay barn harvest prairie plain plains crop crops stadium track racecourse farmland tractor sheep cattle cows cow trench battlefield orchard vineyard",
+  hill: "hill hills hillside hilltop slope slopes moor moors heath downs ski",
+  forest: "forest forests woodland wood woods tree trees pine pines oak oaks branch branches moss undergrowth clearing grove trail fern ferns thicket jungle bushes",
+  mountain: "mountain mountains peak peaks summit cliff cliffs ridge valley crag glacier pass canyon gorge rockface",
+  river: "river rivers stream streams creek brook bank banks canal ferry current riverbank waterfall rapids",
+  lake: "lake lakes pond ponds loch reeds lagoon jetty",
   sea: "sea seas ocean oceans wave waves tide tides sail sails sailor deck gull gulls bay surf",
-  shore: "shore shores beach beaches sand coast coastline dune dunes shingle",
-  harbour: "harbour harbor harbours harbors port quay dock docks pier wharf",
-  desert: "desert deserts sands camel camels oasis dust dusty arid caravan",
-  graveyard: "graveyard graveyards cemetery cemeteries grave graves tomb tombs tombstone headstone churchyard funeral burial",
+  shore: "shore shores beach beaches sand coast coastline dune dunes shingle corniche cove promenade boardwalk seafront",
+  harbour: "harbour harbor harbours harbors port quay dock docks pier wharf marina dhow dhows jetty",
+  desert: "desert deserts sands camel camels oasis dust dusty arid caravan dune dunes sand sandstorm bedouin wadi",
+  graveyard: "graveyard graveyards cemetery cemeteries grave graves tomb tombs tombstone headstone churchyard funeral burial coffin mourners",
   inner: "",
 };
 const TIME_LEX: Record<Time, string> = {
-  dawn: "dawn dawned sunrise daybreak morning mornings breakfast cockcrow",
-  day: "noon afternoon afternoons daylight sunlight sunlit sunny midday sun lunch",
-  dusk: "dusk sunset sundown nightfall evening evenings twilight gloaming supper",
-  night: "night nights tonight midnight dark darkness moon moonlight moonlit stars star starlight starry nocturnal bedtime",
+  dawn: "dawn dawned sunrise daybreak morning mornings breakfast cockcrow fajr",
+  day: "noon afternoon afternoons daylight sunlight sunlit sunny midday sun lunch heat",
+  dusk: "dusk sunset sundown nightfall evening evenings twilight gloaming supper maghrib",
+  night: "night nights tonight midnight dark darkness moon moonlight moonlit stars star starlight starry nocturnal bedtime streetlights",
 };
 const SKY_LEX: Record<Exclude<Sky, "clear">, string> = {
   cloud: "cloud clouds cloudy overcast grey gray",
@@ -64,46 +65,47 @@ const SEASON_LEX: Record<Exclude<Season, "none">, string> = {
   winter: "winter december january february frost frozen ice icy snow",
 };
 const PROP_LEX: Record<Prop, string> = {
-  tree: "tree trees oak pine willow birch",
-  house: "house houses home cottage roof porch",
-  lamp: "lamp lamps lantern lamppost streetlight bulb",
-  boat: "boat boats sail canoe rowboat yacht ferry",
-  bird: "bird birds wing wings feather crow crows gull gulls sparrow owl swallow flock",
-  car: "car cars taxi truck engine headlights drove driving",
-  tower: "tower towers lighthouse steeple spire belfry castle",
-  fire: "fire fires campfire bonfire blaze embers hearth fireplace",
-  table: "table tables",
-  cup: "cup cups coffee tea mug kettle teapot",
-  book: "book books page pages notebook diary novel",
+  tree: "tree trees oak pine willow birch palm palms olive maple cedar cypress elm beech",
+  house: "house houses home cottage roof porch villa hut cabin farmhouse chimney",
+  lamp: "lamp lamps lantern lamppost streetlight bulb lamplight torch searchlight headlamp",
+  boat: "boat boats sail canoe rowboat yacht ferry dhow kayak raft dinghy sailboat lifeboat",
+  bird: "bird birds wing wings feather crow crows gull gulls sparrow owl swallow flock falcon hawk eagle heron duck ducks pigeon pigeons dove doves hen hens swan swans parrot seagull seagulls raven ravens robin starling geese goose",
+  car: "car cars taxi truck engine headlights drove driving lorry van jeep ambulance tractor limousine cab",
+  tower: "tower towers lighthouse steeple spire belfry castle minaret belltower turret",
+  fire: "fire fires campfire bonfire blaze embers hearth fireplace flames grate log logs",
+  table: "table tables desk counter",
+  cup: "cup cups coffee tea mug kettle teapot teacup",
+  book: "book books page pages notebook diary novel journal",
   candle: "candle candles candlelight wick",
   door: "door doors doorway threshold",
-  flower: "flower flowers roses lily lilies bloom blossom petal petals tulip",
+  flower: "flower flowers roses lily lilies bloom blossom petal petals tulip daisy daisies bouquet orchid",
   bench: "bench benches",
-  dog: "dog dogs puppy hound",
-  cat: "cat cats kitten",
-  horse: "horse horses pony mare stallion rode riding saddle",
+  dog: "dog dogs puppy hound wolf wolves fox foxes jackal",
+  cat: "cat cats kitten kittens",
+  horse: "horse horses pony mare stallion rode riding saddle donkey mule foal",
   bridge: "bridge bridges",
-  window: "window windows pane sill",
+  window: "window windows pane sill windowsill shutters",
   bed: "bed beds pillow mattress",
-  chair: "chair chairs armchair stool",
+  chair: "chair chairs armchair stool throne sofa",
   shelf: "shelf shelves bookshelf bookcase",
-  clock: "clock clocks ticking",
+  clock: "clock clocks ticking watch alarm",
   mirror: "mirror mirrors reflection",
   stairs: "stairs staircase banister",
   piano: "piano pianos",
-  letter: "letter letters envelope envelopes",
-  glass: "wineglass glasses wine whisky whiskey",
+  letter: "letter letters envelope envelopes postcard telegram",
+  glass: "wineglass glasses wine whisky whiskey bottle",
   umbrella: "umbrella umbrellas",
-  suitcase: "suitcase suitcases luggage bag bags trunk",
-  bicycle: "bicycle bicycles bike bikes",
-  train: "train trains locomotive carriage",
-  ship: "ship ships steamer liner",
+  suitcase: "suitcase suitcases luggage bag bags trunk backpack rucksack",
+  bicycle: "bicycle bicycles bike bikes motorbike motorcycle scooter",
+  train: "train trains locomotive carriage tram metro",
+  ship: "ship ships steamer liner tanker freighter",
   fence: "fence fences railing railings",
   gate: "gate gates",
   well: "wells",
   grave: "grave graves tombstone headstone",
-  rock: "rock rocks stone stones boulder boulders",
+  rock: "rock rocks stone stones boulder boulders pebble pebbles",
   tent: "tent tents camp",
+  cigarette: "cigarette cigarettes cigar cigars cheroot ashtray lighter smoked",
 };
 const ONE = "i me my he him his she her man woman girl boy father mother child stranger friend son daughter husband wife king queen";
 const TWO = "we us our both two together couple pair each";
@@ -144,6 +146,10 @@ const toLex = <K extends string>(m: Record<K, string>) => Object.fromEntries(Obj
 const F_LEX = toLex(FX_LEX);
 const P_LEX = toLex(PLACE_LEX), T_LEX = toLex(TIME_LEX), S_LEX = toLex(SKY_LEX), R_LEX = toLex(PROP_LEX), SE_LEX = toLex(SEASON_LEX), PO_LEX = toLex(POSE_LEX);
 const ONE_L = lex(ONE), TWO_L = lex(TWO), MANY_L = lex(MANY), CHILD_L = lex(CHILD), ELDER_L = lex(ELDER);
+
+/** Things that burn, most particular first, and the words for their burning part. */
+const BURNERS: readonly Prop[] = ["cigarette", "candle", "lamp", "fire"];
+const FLAME_WORDS = new Set(["flame", "flames", "ember", "embers", "glow", "blaze", "burning", "candlelight", "wick", "lamplight"]);
 
 /** Stems that name a spec's place, sky and things (to pick a caption that names them). */
 export function specStems(s: Spec): Set<string> {
@@ -188,7 +194,7 @@ const PHRASES: Record<string, Tag[]> = {
   "morning light": [["time", "dawn"]], "evening light": [["time", "dusk"]],
   "front door": [["prop", "door"]], "back door": [["prop", "door"]], "coffee cup": [["prop", "cup"]], "tea cup": [["prop", "cup"]],
   "kitchen table": [["place", "kitchen"], ["prop", "table"]], "fire place": [["prop", "fire"]], "rose garden": [["place", "garden"], ["prop", "flower"]],
-  "book shop": [["place", "city"], ["prop", "book"]], "town square": [["place", "village"]], "village square": [["place", "village"]], "market square": [["place", "village"]], "city square": [["place", "city"]], "post office": [["place", "city"]], "light house": [["prop", "tower"]],
+  "book shop": [["place", "city"], ["prop", "book"]], "town square": [["place", "village"]], "grandfather clock": [["prop", "clock"]], "curtain rose": [["place", "room"]], "village square": [["place", "village"]], "market square": [["place", "village"]], "city square": [["place", "city"]], "post office": [["place", "city"]], "light house": [["prop", "tower"]],
   "dog tired": [["none", ""]], "house arrest": [["none", ""]], "star sign": [["none", ""]],
 };
 /** Words that name a thing only as nouns: after a subject or a modal they are verbs ("she fired him"). */
@@ -260,9 +266,11 @@ function walk(text: string, visit: (h: Named1) => void): Tok[] {
     if (prep > 0) prep--;
     if (PREP.has(s)) { prep = 3; return; }
     const w = tk.weight, put = (kind: Kind, key: string, v = w, word = raw) => visit({ kind, key, raw: word, w: v, wi, before });
-    if (ONE_L.has(s)) put("people", "one", 1);
+    // "A grandfather clock" is a clock, not a grandfather.
+    const named2 = !!PHRASES[s + " " + (toks[wi + 1] ? toks[wi + 1].w.replace(/[’']/g, "") : "")];
+    if (!named2 && (ONE_L.has(s) || (personOf(s) && !MANY_L.has(s)))) put("people", "one", 1);
     if (TWO_L.has(s)) put("people", "two", 1);
-    if (MANY_L.has(s) && !COUNT2.has(before)) put("people", "many", 1);
+    if ((MANY_L.has(s) || (isGroup(s) && !TWO_L.has(s))) && !COUNT2.has(before)) put("people", "many", 1);
     if (CHILD_L.has(s)) put("people", "child", 1);
     if (ELDER_L.has(s)) put("people", "elder", 1);
     (Object.keys(PO_LEX) as Exclude<Pose, "stand">[]).forEach((k) => { if (hit(PO_LEX[k], s)) put("pose", k); });
@@ -283,7 +291,9 @@ function walk(text: string, visit: (h: Named1) => void): Tok[] {
     }
     // A verb, not a thing: "she fired", "to park", "would watch".
     if (AMBIG.has(s) && SUBJ.has(before)) return;
-    PLACES.forEach((p) => { if (hit(P_LEX[p], s)) put("place", p, (at ? 2 : 1) * w); });
+    // Words often meant figuratively ("the last square", "a path forward", "an old battlefield") hint at a place but cannot move the scene alone.
+    const weak = WEAK_PLACE.has(s) ? 0.4 : 1;
+    PLACES.forEach((p) => { if (hit(P_LEX[p], s)) put("place", p, (at ? 2 : 1) * w * weak); });
     TIMES.forEach((t) => { if (hit(T_LEX[t], s)) put("time", t); });
     (Object.keys(S_LEX) as Exclude<Sky, "clear">[]).forEach((k) => { if (hit(S_LEX[k], s)) { put("sky", k); lastSky = { key: k, w, wi }; } });
     (Object.keys(SE_LEX) as Exclude<Season, "none">[]).forEach((k) => { if (hit(SE_LEX[k], s)) put("season", k); });
@@ -300,8 +310,17 @@ const LEXICON = {
     if (ph) { const t = ph.find(([k]) => k === "prop"); return t ? t[1] as Prop : null; }
     return PROPS.find((p) => hit(R_LEX[p], w)) || null;
   },
-  isName: (raw: string): boolean => /^[A-Z][a-z]{2,}$/.test(raw) && !NOT_NAMES.has(raw) && !COMMON.has(raw.toLowerCase()),
+  isName: (raw: string): boolean => {
+    const w = raw.toLowerCase();
+    if (!/^[A-Z][a-z]{2,}$/.test(raw) || NOT_NAMES.has(raw) || COMMON.has(w) || personOf(w) || isGroup(w)) return false;
+    // "Icicles hung", "Pigeons pecked": a capital plural opening a sentence is a noun, unless it is a name.
+    return !(w.endsWith("s") && !w.endsWith("ss") && !S_NAMES.has(w));
+  },
 };
+/** Place words that are as often figures of speech. */
+const WEAK_PLACE = new Set("square squares path paths building buildings structure block blocks battlefield board track journey miles horizon drive travel bank pass stage field fields floor wall walls landing gallery club bar bars cell lot open".split(" "));
+/** Names that end in s. */
+const S_NAMES = new Set("james thomas charles nicholas agnes doris lois douglas marcus lucas jonas elias andreas carlos hans klaus louis frances alexis paris iris phyllis dennis curtis francis lewis morris travis silas atlas boris rufus magnus julius cyrus moses jesus idris yunus ilyas anas abbas yunis enis ines mercedes dolores lourdes gladys mavis tess chris ross jess russ".split(" "));
 /** Lower-case words that are never names, even at the start of a sentence. */
 const COMMON = new Set<string>([
   ...[P_LEX, T_LEX, S_LEX, R_LEX, SE_LEX, PO_LEX, F_LEX].flatMap((L) => Object.values(L).flatMap((x) => Array.from(x as Set<string>))),
@@ -311,20 +330,28 @@ const COMMON = new Set<string>([
 export function evidence(text: string): Evidence {
   const e: Evidence = { place: {}, time: {}, sky: {}, season: {}, props: {}, pose: {}, one: 0, two: 0, many: 0, child: 0, elder: 0, speech: 0, walk: 0, fx: {}, first: {}, acts: [], refs: [] };
   const add = (m: Partial<Record<string, number>>, k: string, v: number) => { m[k] = Math.max(0, (m[k] || 0) + v); };
+  /** The words that named each thing, to tell a fire from the flame of a cigarette. */
+  const by: Partial<Record<Prop, string[]>> = {};
   const toks = walk(text, (h) => {
     switch (h.kind) {
       case "people": e[h.key as "one" | "two" | "many" | "child" | "elder"]++; break;
       case "pose": add(e.pose, h.key, h.w); if (h.key === "walk" || h.key === "run") e.walk++; break;
       case "motion": add(e.fx, h.key, h.w); break;
-      case "props": add(e.props, h.key, h.w); if (e.first[h.key as Prop] == null) e.first[h.key as Prop] = h.wi; break;
+      case "props": add(e.props, h.key, h.w); (by[h.key as Prop] = by[h.key as Prop] || []).push(h.raw.toLowerCase()); if (e.first[h.key as Prop] == null) e.first[h.key as Prop] = h.wi; break;
       default: add(e[h.kind], h.key, h.w);
     }
   });
+  // Context: the flame, the embers, the glow belong to what the passage says is burning. A cigarette
+  // that "burned down to its embers" lights no fire; a candle's flame is not a hearth.
+  const burner = BURNERS.find((p) => (by[p] || []).some((w) => !FLAME_WORDS.has(w))) || null;
+  if (burner) BURNERS.forEach((p) => { if (p !== burner && (by[p] || []).every((w) => FLAME_WORDS.has(w))) { delete e.props[p]; delete e.first[p]; } });
   e.speech = (text.match(/[“"][^”"]{2,}[”"]/g) || []).length;
   // "He looked at me": the narrator and someone else are two people.
   const ws = new Set(toks.map((t) => t.w));
   if (["i", "me", "my"].some((w) => ws.has(w)) && ["he", "him", "she", "her"].some((w) => ws.has(w))) e.two++;
-  const r = readActs(toks, LEXICON);
+  // "She rested her head on his shoulder": a she and a he are two people.
+  else if (["she", "her"].some((w) => ws.has(w)) && ["he", "him", "his"].some((w) => ws.has(w))) e.two++;
+  const r = readActs(toks, { ...LEXICON, burner });
   e.acts = r.acts; e.refs = r.refs;
   return e;
 }
@@ -422,6 +449,8 @@ export function shotFor(e: Evidence, who: number, props: Prop[]): Shot {
 export function fxFor(e: Evidence, place: Place, time: Time, sky: Sky): Fx[] {
   const m: Partial<Record<Fx, number>> = { ...e.fx };
   if ((m.glow || 0) && ((e.props.fire || 0) + (e.props.candle || 0)) > 0) m.flicker = (m.flicker || 0) + 1;
+  // A cigarette draws its own thread of smoke.
+  if (e.props.cigarette) delete m.rise;
   const ok = (k: Fx): boolean => {
     if (k === "star") return time === "night" && !isIndoor(place);
     if (k === "swell") return ["sea", "shore", "harbour", "lake", "river"].includes(place);
@@ -484,7 +513,10 @@ export function specFrom(text: string, ctx: Context, e: Evidence = evidence(text
   const mood = moodOf(extra.mood ?? text);
   // A place the passage names itself wins over one carried from before ("above the harbour" two
   // paragraphs back does not move "the kitchen was warm" outside).
-  let place = (argmax(e.place, 0.9) as Place | null) || (argmax(ctx.place, 0.4) as Place | null) || held.place || null;
+  // A faint new place in the carried context does not take over from the one the chapter settled on.
+  let carried = argmax(ctx.place, 0.4) as Place | null;
+  if (carried && held.place && carried !== held.place && (ctx.place[carried] || 0) < 0.9) carried = held.place;
+  let place = (argmax(e.place, 0.9) as Place | null) || carried || held.place || null;
   // No word for the place: outdoor things put it outside; nothing at all gives an honest abstract motif.
   if (!place) {
     const has = (p: Prop) => (e.props[p] || 0) > 0;

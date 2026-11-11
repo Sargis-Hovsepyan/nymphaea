@@ -58,8 +58,8 @@ const CAN: Partial<Record<ThingKind, readonly Prop[]>> = {
   arrive: ["train", "car", "boat", "ship", "bird", "horse", "dog", "cat", "bicycle"],
   depart: ["train", "car", "boat", "ship", "bird", "horse", "dog", "cat", "bicycle"],
   pass: ["train", "car", "boat", "ship", "bird", "horse", "dog", "cat", "bicycle"],
-  light: ["candle", "fire", "lamp"],
-  die: ["candle", "fire", "lamp"],
+  light: ["candle", "fire", "lamp", "cigarette"],
+  die: ["candle", "fire", "lamp", "cigarette"],
   fall: ["cup", "glass", "letter", "book", "umbrella", "suitcase"],
   ring: ["clock", "tower"],
 };
@@ -67,11 +67,11 @@ export const thingCan = (p: Prop, k: ThingKind): boolean => !!CAN[k]?.includes(p
 /** Things a figure's hand can act on, by act. */
 const HANDS: Partial<Record<FigKind, readonly Prop[]>> = {
   open: CAN.open, close: CAN.close, light: CAN.light, snuff: CAN.die,
-  take: ["cup", "glass", "letter", "book", "candle", "umbrella", "suitcase", "flower"],
-  put: ["cup", "glass", "letter", "book", "candle", "umbrella", "suitcase", "flower"],
-  drop: ["cup", "glass", "letter", "book", "candle", "umbrella", "suitcase", "flower"],
-  throw: ["letter", "book", "cup", "glass", "flower"],
-  raise: ["cup", "glass", "letter", "book", "candle", "umbrella", "lamp"],
+  take: ["cup", "glass", "letter", "book", "candle", "umbrella", "suitcase", "flower", "cigarette"],
+  put: ["cup", "glass", "letter", "book", "candle", "umbrella", "suitcase", "flower", "cigarette"],
+  drop: ["cup", "glass", "letter", "book", "candle", "umbrella", "suitcase", "flower", "cigarette"],
+  throw: ["letter", "book", "cup", "glass", "flower", "cigarette"],
+  raise: ["cup", "glass", "letter", "book", "candle", "umbrella", "lamp", "cigarette"],
   drink: ["cup", "glass"],
   read: ["letter", "book"],
 };
@@ -172,9 +172,11 @@ export function describeActs(s: Pick<Spec, "who" | "props" | "acts">): string {
     }
     const subj = a.by === PAIR ? "the two" : a.by === ALL ? (s.who > 1 ? "they all" : "the figure") : who(a.by);
     let v = THIRD[a.kind] || a.kind;
+    // With a cigarette and nothing to drink from, the hand to the mouth is a draw on it.
+    if (a.kind === "drink" && s.props.includes("cigarette") && !s.props.some((p) => p === "cup" || p === "glass")) v = "smokes";
     if (a.by === ALL && s.who > 1) v = v.replace(/^\w+/, plural);
     const t = target(a);
-    const held = s.props.find((p) => ["letter", "cup", "glass", "book", "candle", "flower", "umbrella"].includes(p));
+    const held = s.props.find((p) => ["letter", "cup", "glass", "book", "candle", "flower", "umbrella", "cigarette"].includes(p));
     if (a.kind === "give") return subj + " gives " + (held ? theProp(held) : "something") + (t ? " to " + t : "");
     if ((a.kind === "leave" || a.kind === "enter") && thingOf(a.to) >= 0) return subj + " " + v + " by " + t;
     const obj = t && !["sits down", "gets up", "lies down", "kneels", "falls", "jumps", "bows", "nods", "weeps", "laughs", "waves", "speaks"].includes(THIRD[a.kind] || "")

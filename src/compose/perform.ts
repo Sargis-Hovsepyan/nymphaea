@@ -6,7 +6,7 @@
 // wick). Pure: the scene (compose/draw.ts) puts the result on the drawing.
 import { clamp, ease, lerp } from "../scenes/helpers";
 import { ALL, OFF_AHEAD, OFF_BEHIND, PAIR, THING0, UP, DOWN, figOf, thingOf, type Act } from "./acts";
-import { HAND, STAND, gait, mixJ, reachIK, restJoints, statureScale, type Joints } from "./figure";
+import { HAND, STAND, gait, holdAngle, mixJ, reachIK, restJoints, statureScale, type Joints } from "./figure";
 import { ANCHOR, type Item } from "./layout";
 import { prog, type Seg, type Timeline } from "./timeline";
 import type { Prop } from "./spec";
@@ -162,7 +162,11 @@ export function figurePlayer(it: Item, b: number, segs: Seg[], items: Item[], ai
     j = { ...j, lift: j.lift + Math.sin(tm * 1.4 + ph) * 0.25 };
     // Holding something with nothing else for the hand to do: the arm keeps it where it is held.
     const holding = Object.keys(hold).find((q) => hold[q] > 0.5);
-    if (holding && !walking) { const ang = holding === "umbrella" ? -150 : holding === "candle" ? -96 : -62; j = { ...j, sh2: ang + Math.sin(tm * 1.1 + ph) * 1.5, el2: holding === "umbrella" ? 0 : -14 }; }
+    if (holding === "cigarette") {
+      // Held low at the side, raised to the lips now and then.
+      const c = (tm * 0.11 + ph * 0.37) % 1, puff = c < 0.06 ? ease(c / 0.06) : c < 0.2 ? 1 : c < 0.27 ? ease((0.27 - c) / 0.07) : 0;
+      j = mixJ({ ...j, sh2: -28 + Math.sin(tm * 0.8 + ph), el2: -78 }, { ...j, sh2: -128, el2: -118, head: -6 }, walking ? 0 : puff);
+    } else if (holding && !walking) j = { ...j, sh2: holdAngle(holding) + Math.sin(tm * 1.1 + ph) * 1.5, el2: holding === "umbrella" ? 0 : -14 };
     else if (holding && walking && holding === "umbrella") j = { ...j, sh2: -150, el2: 0 };
 
     for (const { sg, u } of overlays) {
@@ -175,6 +179,11 @@ export function figurePlayer(it: Item, b: number, segs: Seg[], items: Item[], ai
         continue;
       }
       const t = aim(a.to, it);
+      // Lighting what is in the hand (a cigarette): both hands to the face.
+      if ((k === "light" || k === "snuff") && !t && Object.keys(hold).some((q) => hold[q] > 0.5)) {
+        j = mixJ(j, { ...j, sh2: -128, el2: -118, sh1: -112, el1: -104, head: -8 }, w);
+        continue;
+      }
       if (REACH.has(k) || k === "give") {
         const goal = k === "give" && partner ? { x: (x + partner.x) / 2, y: y - 50 * it.s } : t;
         const ik = goal ? reachTo(j, x, y, face, goal.x, goal.y + (k === "knock" ? Math.sin(tm * 18) * 2 * it.s : 0)) : null;

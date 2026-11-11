@@ -224,6 +224,26 @@ export function thing(p: Prop, k: number, id: string, c: Ctx): Built {
       });
       break;
     }
+    case "cigarette": {
+      // Paper, a filter, an ember at the tip and a thread of smoke. Lit unless the acts say otherwise;
+      // burning out shortens it, the ember dies and the last smoke drifts off.
+      svg = path("lit", "M0,0", key("b")) + path("key", rect(-6, -2, 2.2, 2)) + path("key", "M0,0", key("e")) + path("line", "M0,0", key("w"), 'fill="none"');
+      const ph = r() * 6;
+      mv.push((a, t, tm, _e, p) => {
+        const lt = litAt(ev, p), dying = ev.some((x) => x.kind === "die"), on = lt == null ? clamp(t * 2) : lt;
+        const tip = dying && lt != null ? lerp(-2.5, 6, lt) : 6;
+        a.a(key("b")).setAttribute("d", rect(-3.8, -2, tip + 3.8, 2));
+        const glow = on * (0.75 + 0.25 * Math.sin(tm * 2.3 + ph));
+        a.a(key("e")).setAttribute("d", on > 0.02 ? ellipse(tip, -1, 1.1 + glow * 0.5, 1.1) : "M0,0");
+        op(a, key("e"), glow);
+        const sm = Math.max(on * 0.7, smokeAt(ev, p) * 0.8);
+        let d = "M0,0";
+        if (sm > 0.02) { const pts: string[] = []; for (let n = 0; n <= 7; n++) { const q = n / 7; pts.push(f(tip + Math.sin(tm * 1.7 + q * 5 + ph) * q * 5) + "," + f(-2 - q * 30)); } d = "M" + pts.join(" L"); }
+        a.a(key("w")).setAttribute("d", d);
+        op(a, key("w"), sm);
+      });
+      break;
+    }
     case "clock": {
       svg = path("edge", circle(0, -9, 9)) + path("lit", circle(0, -9, 7.5)) + path("line", "M0,0", key("h"));
       mv.push((a, _t, tm) => { const m = tm * 0.5, h = tm * 0.04; a.a(key("h")).setAttribute("d", "M0,-9 L" + f(Math.sin(m) * 6) + "," + f(-9 - Math.cos(m) * 6) + " M0,-9 L" + f(Math.sin(h) * 4) + "," + f(-9 - Math.cos(h) * 4)); });
