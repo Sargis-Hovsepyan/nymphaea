@@ -50,6 +50,8 @@ export function printCss(S: Settings): string {
     + ".ch{break-before:page;min-height:0!important;padding-top:24mm!important;margin-top:0!important;break-after:avoid}"
     + "h3,h4{break-after:avoid}"
     + "figure{break-inside:avoid}"
+    + "body.sz-full figure:not(.orn-fig){width:100%!important;margin-inline:0!important}"
+    + ".ch figure.head{break-after:avoid;margin-bottom:6mm!important}"
     + ".text p{orphans:2;widows:2}"
     + ".text>*,.ch,.text p{animation:none!important;opacity:1!important;transform:none!important;filter:none!important;color:inherit!important}"
     // A floated drop cap is painted twice across a page break in Chromium; a native initial

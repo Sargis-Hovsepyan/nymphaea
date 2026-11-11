@@ -21,6 +21,8 @@ export interface ArtItem {
   pre?: HTMLPreElement;
   pw?: number;
   node: HTMLElement;
+  /** An AI picture, drawn through the style (canvas styles) or shown with a CSS treatment (vector). */
+  photo?: HTMLImageElement;
   /** Generative style: a seed from the text and its mood. */
   gen?: { h: number; v: number; a: number };
 }

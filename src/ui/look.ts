@@ -2,7 +2,8 @@
 // the measure and leading, and body classes for every switch. No storage, no controls.
 import { isDark, palette, paletteVars } from "../design/themes";
 import { MEASURE, PAIRINGS, fontsHref, leading, normSize } from "../design/type";
-import { FIGW } from "../settings";
+import { FIGW, LEAD } from "../settings";
+import { cueSupported } from "./place";
 import { moving, state } from "../state";
 import type { Settings } from "../types";
 
@@ -30,21 +31,27 @@ export function applyLook(S: Settings = state.settings): void {
   docEl.style.setProperty("--size", normSize(S.fontSize, P.xh) + "px");
   docEl.style.setProperty("--measure", String(m));
   docEl.style.setProperty("--cw", String(measured[S.pairing] || P.cw));
-  docEl.style.setProperty("--lh", String(leading(m, P.xh, S.align === "justify")));
+  docEl.style.setProperty("--lh", String(Math.round(leading(m, P.xh, S.align === "justify") * (LEAD[S.leading] || 1) * 1000) / 1000));
   docEl.style.setProperty("--fig", FIGW[S.size] || "290px");
   setFonts(S);
 
   const cls: Record<string, boolean> = {
-    lit: S.light !== "off", motion: moving(), justify: S.align === "justify", "para-book": S.para === "book",
-    paged: S.layout === "paged",
+    lit: S.light !== "off", motion: moving(), "cue-ok": cueSupported(), justify: S.align === "justify", "para-book": S.para === "book",
+    paged: S.layout === "paged", hy: S.hyphens,
   };
   Object.keys(cls).forEach((c) => body.classList.toggle(c, cls[c]));
-  const groups: [string, string][] = [["lt", S.light], ["rv", S.reveal], ["op", S.opening], ["layout", S.layout], ["orn", S.ornament], ["st", S.style]];
+  const groups: [string, string][] = [["lt", S.light], ["rv", S.reveal], ["op", S.opening], ["layout", S.layout], ["orn", S.ornament], ["st", S.style], ["pic", S.pictures], ["cp", captionMode(S)],
+    ["fr", S.frame], ["sz", S.size], ["pp", S.paper], ["chs", S.chapterStyle], ["pr", S.progress], ["cv", S.cover]];
   groups.forEach(([g, v]) => {
     Array.from(body.classList).forEach((c) => { if (c.startsWith(g + "-") && c !== g + "-" + v) body.classList.remove(c); });
     body.classList.add(g + "-" + v);
   });
   docEl.classList.toggle("snap", S.layout === "cards");
+}
+
+/** Cue needs the Custom Highlight API; without it the printed caption stands in. */
+function captionMode(S: Settings): Settings["captions"] {
+  return (S.captions === "cue" || S.captions === "both") && !cueSupported() ? "caption" : S.captions;
 }
 
 /** Load only the chosen pairing's fonts (one stylesheet link, swapped when the pairing changes). */

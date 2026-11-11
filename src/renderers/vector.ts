@@ -1,7 +1,8 @@
 // Vector picture styles: Ink (lines that draw themselves), Cut paper (flat layers, stop-motion
 // steps) and Glow (silhouettes in lamplight). The look is CSS on the scene's role classes.
 import { clamp } from "../scenes/helpers";
-import { VSCENES, type VApi } from "../vscenes";
+import { vscene } from "../compose";
+import type { VApi } from "../vscenes";
 import type { Style } from "../types";
 
 export const VECTOR_STYLES: readonly Style[] = ["ink", "cut", "glow", "wash"];
@@ -19,7 +20,7 @@ let uid = 0;
 export function makeVector(style: Style, scene: string, label: string): { wrap: HTMLDivElement; vec: VecHandle } {
   const id = "v" + ++uid, wrap = document.createElement("div");
   wrap.className = "art";
-  const vs = VSCENES[scene] || VSCENES.lamp;
+  const vs = vscene(scene);
   wrap.innerHTML = '<svg class="vart ' + style + '" viewBox="0 0 320 200" role="img"></svg>';
   const svg = wrap.firstChild as SVGSVGElement;
   svg.setAttribute("aria-label", label);
@@ -39,7 +40,7 @@ export function makeVector(style: Style, scene: string, label: string): { wrap: 
 export function drawVector(vec: VecHandle, style: Style, scene: string, t: number, tm: number): void {
   // Cut paper moves "on threes": the beat snaps in 6 steps and ambient motion runs at 8 fps.
   if (style === "cut") { t = Math.round(t * 6) / 6; tm = Math.floor(tm * 8) / 8; }
-  (VSCENES[scene] || VSCENES.lamp).update(vec.api, t, tm);
+  vscene(scene).update(vec.api, t, tm);
   if (style === "ink") {
     const n = vec.strokes.length;
     vec.strokes.forEach((s, i) => {

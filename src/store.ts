@@ -4,6 +4,11 @@ export function store(k: string, v: unknown): void {
   try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* private mode / blocked storage */ }
 }
 
+/** Like store(), but says whether the browser kept it (storage can be full, blocked or private). */
+export function tryStore(k: string, v: unknown): boolean {
+  try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch { return false; }
+}
+
 export function load<T>(k: string): T | null {
   try {
     const v = localStorage.getItem(k);

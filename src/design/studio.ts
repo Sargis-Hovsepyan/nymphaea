@@ -1,4 +1,4 @@
-// The Studio's own palette: night water (dark) and mist (light). Not a book theme: it only dresses
+// The Studio's own palette: jet black (60%), space gray (30%) and forest green (10%), dark first. Not a book theme: it only dresses
 // the app around the book. Same token names as a book palette so the shared styles just work,
 // plus `raised` (cards, sheets) and `pollen` (the few places that need a second signal).
 import { rgb, type Palette } from "./themes";
@@ -6,8 +6,8 @@ import { rgb, type Palette } from "./themes";
 export interface StudioPalette extends Palette { raised: string; pollen: string }
 
 export const STUDIO: { dark: StudioPalette; light: StudioPalette } = {
-  dark: { desk: "#0d1618", panel: "#121e21", raised: "#18272b", rule: "#223438", ink: "#e2ebe8", muted: "#8ea4a0", accent: "#a194ff", accent2: "#e6c158", pollen: "#e6c158", hi: "#dbe6e3", lo: "#0d1618" },
-  light: { desk: "#e9efee", panel: "#f3f6f5", raised: "#fafbfb", rule: "#d3dddb", ink: "#122020", muted: "#4c5f5c", accent: "#5543d0", accent2: "#9a6f0c", pollen: "#9a6f0c", hi: "#f3f6f5", lo: "#122020" },
+  dark: { desk: "#0a0a0b", panel: "#1d1f23", raised: "#272a2f", rule: "#33373d", ink: "#eceef0", muted: "#9aa0a8", accent: "#3f9a6b", accent2: "#7fcfa3", pollen: "#e0a645", hi: "#e6e8ea", lo: "#0a0a0b" },
+  light: { desk: "#cfd2d6", panel: "#f3f4f5", raised: "#fbfbfc", rule: "#c3c7cc", ink: "#0c0d0e", muted: "#50565e", accent: "#24603f", accent2: "#1d5a3a", pollen: "#9a6200", hi: "#f3f4f5", lo: "#0c0d0e" },
 };
 
 export function studioVars(dark: boolean): Record<string, string> {

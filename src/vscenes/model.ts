@@ -3,7 +3,8 @@
 // scene as a greyscale source, and lets the EPUB export save a finished frame as a standalone SVG.
 // Used by scenes/index.ts (canvas versions of the vector-only scenes) and epub/book.ts.
 import type { Ctx } from "../scenes/helpers";
-import { VSCENES, type VApi } from "./index";
+import { vscene } from "../compose";
+import type { VApi } from "./index";
 
 interface Node { tag: string; attrs: Record<string, string>; style: Record<string, string>; kids: Node[] }
 
@@ -25,12 +26,12 @@ function parse(markup: string): { root: Node; keys: Record<string, Node> } {
   return { root, keys };
 }
 
-export interface SceneModel { api: VApi; root: Node; lv: number }
+export interface SceneModel { api: VApi; root: Node; lv: number; hour: string }
 
 export function sceneModel(name: string): SceneModel {
-  const vs = VSCENES[name] || VSCENES.lamp;
+  const vs = vscene(name);
   const { root, keys } = parse(vs.build("m"));
-  const model: SceneModel = { root, lv: 1, api: null as unknown as VApi };
+  const model: SceneModel = { root, lv: 1, api: null as unknown as VApi, hour: /data-h="(\w+)"/.exec(vs.build("m"))?.[1] || "" };
   const els: Record<string, SVGElement> = {};
   model.api = {
     a(k) {
@@ -47,6 +48,17 @@ function role(n: Node): string { return (n.attrs.class || "").split(/\s+/).find(
 
 /** Grey levels (0–255) of each role on the greyscale source canvas. */
 const GREY: Record<string, number> = { bg2: 46, edge: 72, board: 58, far: 122, key: 220, lit: 255, fig: 12 };
+/** The sky by the hour, top and horizon greys; clouds and fog take the horizon's tone. */
+const SKY: Record<string, [number, number]> = { dawn: [96, 176], day: [150, 214], dusk: [70, 160], night: [14, 60] };
+const HAZE: Record<string, number> = { dawn: 196, day: 236, dusk: 172, night: 52 };
+
+/** Path2D objects by their path data: most of a scene does not move, so most frames rebuild nothing. */
+const paths = new Map<string, Path2D>();
+function path2d(d: string): Path2D {
+  let p = paths.get(d);
+  if (!p) { if (paths.size > 4000) paths.clear(); p = new Path2D(d); paths.set(d, p); }
+  return p;
+}
 
 function applyTransform(c: Ctx, tr: string | undefined): void {
   if (!tr) return;
@@ -65,7 +77,8 @@ export function drawModel(m: SceneModel, c: Ctx, w: number, h: number): void {
   c.fillStyle = "rgb(8,8,8)"; c.fillRect(0, 0, w, h);
   c.scale(w / 320, h / 200);
   const walk = (n: Node, alpha: number) => {
-    const op = n.style.opacity != null && n.style.opacity !== "" ? Number(n.style.opacity) : 1;
+    const raw = n.style.opacity != null && n.style.opacity !== "" ? n.style.opacity : n.attrs.opacity;
+    const op = raw != null && raw !== "" ? Number(raw) : 1;
     const a = alpha * (Number.isFinite(op) ? op : 1);
     if (a <= 0.001) return;
     c.save();
@@ -79,8 +92,16 @@ export function drawModel(m: SceneModel, c: Ctx, w: number, h: number): void {
       gr.addColorStop(1, "rgba(255,255,255,0)");
       c.fillStyle = gr; c.fillRect(cx - rr, cy - rr, rr * 2, rr * 2);
     } else if (n.tag === "path" && n.attrs.d && n.attrs.d.length > 4 && typeof Path2D !== "undefined") {
-      const p = new Path2D(n.attrs.d);
+      const p = path2d(n.attrs.d);
       if (r === "line") { c.strokeStyle = "rgb(150,150,150)"; c.lineWidth = 1.4; c.stroke(p); }
+      else if (r === "sky") {
+        const [g0, g1] = SKY[n.attrs["data-h"] || m.hour] || SKY.night, y1 = Math.max(20, +(n.attrs["data-y"] || 200));
+        const gr = c.createLinearGradient(0, 0, 0, y1);
+        gr.addColorStop(0, "rgb(" + g0 + "," + g0 + "," + g0 + ")"); gr.addColorStop(1, "rgb(" + g1 + "," + g1 + "," + g1 + ")");
+        c.fillStyle = gr; c.fill(p);
+      }
+      else if (r === "haze") { const g = n.attrs["data-dark"] ? Math.round((HAZE[m.hour] ?? 120) * 0.6) : HAZE[m.hour] ?? 120; c.fillStyle = "rgba(" + g + "," + g + "," + g + ",.85)"; c.fill(p); }
+      else if (r === "shade") { c.fillStyle = "rgba(0,0,0,.3)"; c.fill(p); }
       else if (r === "beam") { c.fillStyle = "rgba(255,255,255," + (0.32 * m.lv).toFixed(3) + ")"; c.fill(p); }
       else if (r === "pool") { c.fillStyle = "rgba(255,255,255," + (0.25 * m.lv).toFixed(3) + ")"; c.fill(p); }
       else { const g = GREY[r] ?? 122; c.fillStyle = "rgb(" + g + "," + g + "," + g + ")"; c.fill(p); }
@@ -97,17 +118,23 @@ export function modelSvg(m: SceneModel, colours: { bg: string; ink: string; acce
   const fill: Record<string, string> = { bg2: colours.mid, edge: colours.dark, board: colours.mid, far: colours.ink, key: colours.accent, lit: colours.light, fig: colours.ink };
   const esc = (s: string) => s.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" } as Record<string, string>)[c]);
   const out = (n: Node): string => {
-    const r = role(n), op = n.style.opacity ? ' opacity="' + esc(n.style.opacity) + '"' : "";
+    const r = role(n), o = n.style.opacity || n.attrs.opacity, op = o ? ' opacity="' + esc(o) + '"' : "";
     const tr = n.attrs.transform ? ' transform="' + esc(n.attrs.transform) + '"' : "";
     if (n.tag === "g") return "<g" + tr + op + ">" + n.kids.map(out).join("") + "</g>";
-    if (n.tag === "circle") return r === "pool" ? '<circle cx="' + esc(n.attrs.cx || "0") + '" cy="' + esc(n.attrs.cy || "0") + '" r="' + esc(n.attrs.r || "0") + '" fill="' + colours.accent + '" opacity="' + (0.12 * m.lv).toFixed(3) + '"/>' : "";
+    if (n.tag === "circle") return r === "pool" ? '<circle cx="' + esc(n.attrs.cx || "0") + '" cy="' + esc(n.attrs.cy || "0") + '" r="' + esc(n.attrs.r || "0") + '" fill="url(#mpool)" opacity="' + (0.9 * m.lv).toFixed(3) + '"/>' : "";
     if (n.tag !== "path" || !n.attrs.d) return "";
     const d = ' d="' + esc(n.attrs.d) + '"';
     if (r === "line") return "<path" + tr + op + d + ' fill="none" stroke="' + colours.ink + '" stroke-width="1.3" stroke-linecap="round"/>';
+    if (r === "sky") return "<path" + tr + op + d + ' fill="url(#msky)"/>';
+    if (r === "haze") return "<path" + tr + op + d + ' fill="' + colours.light + '" opacity=".5"/>';
+    if (r === "shade") return "<path" + tr + d + ' fill="#000" opacity=".22"/>';
     if (r === "beam") return "<path" + tr + d + ' fill="' + colours.accent + '" opacity="' + (0.25 * m.lv).toFixed(3) + '"/>';
     return "<path" + tr + op + d + ' fill="' + (fill[r] || colours.ink) + '"/>';
   };
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="' + esc(label) + '"><rect width="320" height="200" fill="' + colours.bg + '"/>' + out(m.root) + "</svg>";
+  const sk: Record<string, [string, string]> = { dawn: [colours.mid, colours.accent], day: [colours.light, colours.light], dusk: [colours.dark, colours.accent], night: [colours.dark, colours.mid] };
+  const [s0, s1] = sk[m.hour] || sk.night;
+  const glow = '<defs><linearGradient id="msky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + s0 + '"/><stop offset="1" stop-color="' + s1 + '" stop-opacity=".8"/></linearGradient><radialGradient id="mpool"><stop offset="0" stop-color="' + colours.accent + '" stop-opacity=".32"/><stop offset="1" stop-color="' + colours.accent + '" stop-opacity="0"/></radialGradient></defs>';
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-label="' + esc(label) + '">' + glow + '<rect width="320" height="200" fill="' + colours.bg + '"/>' + out(m.root) + "</svg>";
 }
 
 /** A canvas scene function for any vector scene (see scenes/index.ts). */
@@ -115,7 +142,7 @@ export function canvasScene(name: string): (c: Ctx, t: number, tm: number) => vo
   let m: SceneModel | null = null;
   return (c, t, tm) => {
     if (!m) m = sceneModel(name);
-    (VSCENES[name] || VSCENES.lamp).update(m.api, t, tm);
+    vscene(name).update(m.api, t, tm);
     const cv = (c as CanvasRenderingContext2D).canvas, ok = cv && typeof cv.width === "number";
     drawModel(m, c, ok ? cv.width : 192, ok ? cv.height : 120);
   };
@@ -124,6 +151,6 @@ export function canvasScene(name: string): (c: Ctx, t: number, tm: number) => vo
 /** A scene's finished frame as a small standalone SVG (the Studio's picture cards). */
 export function sceneThumb(name: string, colours: Parameters<typeof modelSvg>[1]): string {
   const m = sceneModel(name);
-  (VSCENES[name] || VSCENES.lamp).update(m.api, 1, 0);
+  vscene(name).update(m.api, 1, 0);
   return modelSvg(m, colours, name);
 }

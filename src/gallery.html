@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scene gallery</title>
+<link rel="stylesheet" href="./styles.css">
+<style>
+  :root{--lo:#141210;--hi:#ece4d2;--ink:#e6dfd0;--accent:#e0a645;--accent2:#7f9cc9;--muted:#9d9686}
+  body{background:#141210;color:#e6dfd0;font:12px/1.4 system-ui;margin:0;padding:12px}
+  body.light{--lo:#2a2620;--hi:#f3eee4;--ink:#2a2620;--accent:#9a5418;--accent2:#3f5f8f;background:#ece6da;color:#2a2620}
+  .g{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .g figure{margin:0}.g figcaption{opacity:.7;margin-top:4px}
+  canvas{width:100%;aspect-ratio:8/5;display:block}
+  .bar{position:sticky;top:0;padding:6px 0 10px;background:inherit;z-index:2}
+</style>
+</head>
+<body>
+<div class="bar">Style <select id="st"><option>cut</option><option>ink</option><option>glow</option><option>wash</option><option>canvas</option></select>
+<label><input type="checkbox" id="lt"> light</label> <label>t <input type="range" id="t" min="0" max="1" step=".01" value="1"></label></div>
+<div class="g" id="g"></div>
+<script type="module" src="./gallery.ts"></script>
+</body>
+</html>

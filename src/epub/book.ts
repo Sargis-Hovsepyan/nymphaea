@@ -2,10 +2,12 @@
 // the pictures at their finished frame with their quoted captions, and the theme's light mood as
 // the stylesheet. Pure (pictures come in as PNG data URLs); zipped by zip.ts.
 import { APP_NAME } from "../brand";
+import { beatIndexes, hasOwnNumber } from "../book/structure";
 import { PAIRINGS, numeral } from "../design/type";
 import { palette } from "../design/themes";
 import { isBreak, spans } from "../inline";
-import { SCENE_DESC } from "../stage/keywords";
+import { sceneLabel } from "../compose";
+import { LEAD } from "../settings";
 import { guardScenes } from "../stage/guard";
 import type { Block, Book, Settings } from "../types";
 import { zipStore } from "../zip";
@@ -37,10 +39,16 @@ function dataBytes(url: string): Uint8Array {
 
 function css(S: Settings): string {
   const p = palette(S.theme, false), P = PAIRINGS[S.pairing] || PAIRINGS.literary, book = S.para === "book";
-  return "body{font-family:" + P.body + ";line-height:1.55;color:" + p.ink + ";margin:0 5%}"
+  return "body{font-family:" + P.body + ";line-height:" + (1.55 * (LEAD[S.leading] || 1)).toFixed(2) + ";color:" + p.ink + ";margin:0 5%}"
     + "h1,h2,h3{font-family:" + P.display + ";font-weight:normal;text-align:center}"
     + "h1{font-size:2em;margin:30% 0 .3em}h2{font-size:1.5em;margin:2.4em 0 1.4em}h3{font-size:1em;letter-spacing:.2em;text-transform:uppercase}"
-    + ".num{display:block;font-size:2em;color:" + p.accent + ";margin-bottom:.2em}"
+    + (S.hyphens ? "p,blockquote{hyphens:auto;-epub-hyphens:auto;-webkit-hyphens:auto}" : "")
+    + ".num{display:block;font-size:" + (S.chapterStyle === "numeral" ? "3.6em" : S.chapterStyle === "classic" ? "2em" : "1em") + ";color:" + p.accent + ";margin-bottom:.2em"
+    + (S.chapterStyle === "minimal" || S.chapterStyle === "ornament" ? ";letter-spacing:.3em;text-transform:uppercase;font-size:.8em;color:" + p.muted : "") + "}"
+    + (S.chapterStyle === "minimal" ? "h2{font-size:1.2em;margin:2em 0 1.2em}" : "")
+    + (S.chapterStyle === "ornament" ? "h2:before{content:'\\2766';display:block;color:" + p.accent + ";font-size:1.2em;margin-bottom:.4em}" : "")
+    + (S.frame === "plate" ? "figure{margin:2.6em auto;padding:.5em;border:1px solid " + p.muted + "}figcaption{text-align:center}" : "")
+    + (S.frame === "head" ? "figure.head{margin:0 auto 1em}" : "")
     + ".sub{text-align:center;font-style:italic}.by{text-align:center;font-variant:small-caps;letter-spacing:.12em}"
     + ".ded{text-align:center;font-style:italic;margin-top:30%}"
     + "p{margin:0" + (book ? "" : " 0 .8em") + ";text-indent:" + (book ? "1.4em" : "0") + (S.align === "justify" ? ";text-align:justify" : "") + "}"
@@ -51,11 +59,10 @@ function css(S: Settings): string {
     + "blockquote{margin:1.2em 1.5em;font-style:italic}blockquote.epi{text-align:right;margin-left:30%}"
     + "figure{margin:1.6em auto;text-align:center;page-break-inside:avoid}figure img{max-width:100%}"
     + "figcaption{font-size:.8em;letter-spacing:.08em;text-transform:uppercase;color:" + p.muted + "}"
+    + (S.cover === "type" ? "h1{font-size:2.8em;margin:25% 0 .3em}" : S.cover === "minimal" ? "h1{font-size:1.6em;margin:12% 0 .3em}" : "")
     + ".cover-img{text-align:center;margin-top:10%}.cover-img img{max-width:80%}"
     + ".colophon{text-align:center;font-style:italic;font-size:.85em;margin-top:40%}";
 }
-
-const OWN_NUMBER = /^(chapter|part|book|episode|act|prologue|epilogue|interlude|\d+\b)/i;
 
 export function buildEpub(book: Book, S: Settings, pictures: Picture[], now = new Date()): Uint8Array {
   const B = book, scenes = guardScenes(B.blocks, B.scenes).scenes;
@@ -63,6 +70,7 @@ export function buildEpub(book: Book, S: Settings, pictures: Picture[], now = ne
   let cover = "";
   pictures.forEach((p, k) => {
     const name = p.cover ? "images/cover.png" : "images/fig-" + (k + 1) + ".png";
+    if (p.cover && S.cover !== "picture") return;
     files.push({ name: "OEBPS/" + name, data: dataBytes(p.png) });
     if (p.cover) cover = name; else imgs.set(p.after, name);
   });
@@ -73,33 +81,38 @@ export function buildEpub(book: Book, S: Settings, pictures: Picture[], now = ne
   B.blocks.forEach((b, i) => {
     if (b.type === "h" && (b.level || 1) === 1) {
       if (cur.blocks.length) chapters.push(cur);
-      cur = { title: b.text, num: OWN_NUMBER.test(b.text) ? "" : numeral(++n, S.numerals), blocks: [[b, i]] };
+      cur = { title: b.text, num: hasOwnNumber(b.text) ? "" : numeral(++n, S.numerals), blocks: [[b, i]] };
     } else cur.blocks.push([b, i]);
   });
   if (cur.blocks.length) chapters.push(cur);
 
+  const beats = beatIndexes(B.blocks, B.beats);
   const byAfter = new Map<number, typeof scenes>();
   scenes.forEach((s) => byAfter.set(s.after, [...(byAfter.get(s.after) || []), s]));
   const xhtml = chapters.map((c) => {
     let first = true, prev: Block | null = null;
-    return c.blocks.map(([b, i]) => {
+    // Head frame: the chapter's first picture opens the chapter, above its title.
+    const idx = new Set(c.blocks.map(([, i]) => i));
+    const headS = S.frame === "head" && c.blocks[0] && c.blocks[0][0].type === "h" && (c.blocks[0][0].level || 1) === 1 ? scenes.filter((s) => idx.has(s.after)).sort((a, b) => a.after - b.after)[0] : undefined;
+    const fig = (s: typeof scenes[number], i: number, cls = "") => {
+      const src = imgs.get(i);
+      return "<figure" + (cls ? ' class="' + cls + '"' : "") + ">" + (src ? '<img src="' + src + '" alt="' + esc(sceneLabel(s.scene)) + '"/>' : "") + "<figcaption>" + esc(s.caption) + "</figcaption></figure>";
+    };
+    return (headS ? fig(headS, headS.after, "head") + "\n" : "") + c.blocks.map(([b, i]) => {
       let h: string;
       if (b.type === "h") { h = (b.level || 1) === 1 ? "<h2>" + (c.num ? '<span class="num">' + esc(c.num) + "</span>" : "") + inline(b.text) + "</h2>" : "<h3>" + inline(b.text) + "</h3>"; first = true; }
       else if (b.type === "quote") h = '<blockquote class="' + (!prev || prev.type === "h" ? "epi" : "q") + '"><p>' + lines(b.text) + "</p></blockquote>";
       else if (b.type === "verse") h = '<p class="verse">' + lines(b.text) + "</p>";
       else if (isBreak(b.text)) { h = '<p class="brk">' + esc(b.text) + "</p>"; first = true; }
-      else { h = "<p" + (first ? ' class="first"' : b.text.length <= 18 && S.beats ? ' class="beat"' : "") + ">" + inline(b.text) + "</p>"; first = false; }
-      (byAfter.get(i) || []).forEach((s) => {
-        const src = imgs.get(i);
-        h += "<figure>" + (src ? '<img src="' + src + '" alt="' + esc(SCENE_DESC[s.scene] || s.scene) + '"/>' : "") + "<figcaption>" + esc(s.caption) + "</figcaption></figure>";
-      });
+      else { h = "<p" + (first ? ' class="first"' : S.beats && beats.has(i) ? ' class="beat"' : "") + ">" + inline(b.text) + "</p>"; first = false; }
+      (byAfter.get(i) || []).forEach((s) => { if (s !== headS) h += fig(s, i); });
       prev = b;
       return h;
     }).join("\n");
   });
 
   const id = "urn:uuid:" + uuidOf(B.title + "|" + B.blocks.length + "|" + (B.blocks[0] ? B.blocks[0].text.slice(0, 80) : ""));
-  const titlePage = page(B.title, (cover ? '<div class="cover-img"><img src="' + cover + '" alt=""/></div>' : "")
+  const titlePage = page(B.title, (cover && S.cover === "picture" ? '<div class="cover-img"><img src="' + cover + '" alt=""/></div>' : "")
     + "<h1>" + esc(B.title) + "</h1>" + (B.subtitle ? '<p class="sub">' + esc(B.subtitle) + "</p>" : "") + (B.author ? '<p class="by">' + esc(B.author) + "</p>" : "")
     + (B.dedication ? '<p class="ded">' + lines(B.dedication) + "</p>" : ""));
   const colophon = page("Colophon", '<p class="colophon">' + esc((B.author ? B.title + " by " + B.author + ". " : "") + "Set in " + (PAIRINGS[S.pairing] || PAIRINGS.literary).note + ". Made with " + APP_NAME + ".") + "</p>");

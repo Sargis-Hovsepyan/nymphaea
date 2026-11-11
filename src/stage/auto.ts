@@ -1,7 +1,9 @@
 import { isBreak } from "../inline";
 import { isProse } from "../parse";
 import { DENS } from "../settings";
-import type { Block, Density, SceneRef } from "../types";
+import { concreteness, evidence, specStems, trackSpecs } from "../compose/read";
+import { decode, encode, type Spec } from "../compose/spec";
+import type { Art, Block, Density, SceneRef } from "../types";
 import { KW, SCENE_LIST, WORDS, bestScene, scoreOf, words } from "./keywords";
 import { placeK, type Cand } from "./place";
 import { segment } from "./segment";
@@ -15,7 +17,8 @@ import { docModel, isStop, stem, type DocModel } from "./stem";
 export function captionFor(t: string, scene: string | null): string {
   const flatT = t.replace(/\s+/g, " ");
   const clauses = flatT.split(/[.!?…;:]+|,\s|“|”|"/).map((c) => c.trim()).filter((c) => c.length > 1);
-  const own = new Set(scene && WORDS[scene] ? WORDS[scene].split(" ").map(stem) : []);
+  const spec = decode(scene);
+  const own = spec ? specStems(spec) : new Set(scene && WORDS[scene] ? WORDS[scene].split(" ").map(stem) : []);
   let pick: string | null = null, best = -Infinity;
   clauses.forEach((c, k) => {
     const ws = words(c), n = c.split(/\s+/).length;
@@ -30,6 +33,23 @@ export function captionFor(t: string, scene: string | null): string {
   const w = out.split(/\s+/);
   if (w.length > 7) out = w.slice(0, 6).join(" ") + "…";
   return out;
+}
+
+/**
+ * Shot progression: when a picture shows the same place at the same hour as the one before, the
+ * camera moves (wide, then nearer to the people, then close on a thing), so a chapter in one
+ * kitchen reads as an establishing shot followed by cuts instead of the same view again.
+ */
+export function cut(s: Spec, prev: Spec | null): Spec {
+  if (!prev || prev.place !== s.place || prev.time !== s.time || s.place === "inner" || s.shot !== prev.shot) return s;
+  const order: Spec["shot"][] = ["wide", "mid", "close"];
+  for (let k = 1; k <= 3; k++) {
+    const shot = order[(order.indexOf(prev.shot) + k) % 3];
+    if (shot === "mid" && !s.who) continue;
+    if (shot === "close" && !s.props.length) continue;
+    return { ...s, shot };
+  }
+  return { ...s, moment: (s.moment + 487) % 1296 };
 }
 
 /** The scene that best represents the whole text. */
@@ -51,7 +71,7 @@ export function dominant(blocks: Block[]): string {
  *   4. each picture shows the strongest scene in its paragraph or the few before it, never the
  *      same scene twice running, and quotes its caption from the paragraph that named it.
  */
-export function autoStage(blocks: Block[], density: Density): SceneRef[] {
+export function autoStage(blocks: Block[], density: Density, art: Art = "mixed"): SceneRef[] {
   const target = DENS[density] || 450;
   const prose = blocks.map((b, i) => ({ b, i })).filter(({ b }) => isProse(b) && !(b.type === "p" && isBreak(b.text)));
   if (!prose.length) return [];
@@ -67,8 +87,9 @@ export function autoStage(blocks: Block[], density: Density): SceneRef[] {
   const total = cw, K = Math.max(1, Math.floor(total / target));
   const at = placeK(cands, total, K);
   const fallback = dominant(blocks);
+  const specs = art === "library" ? [] : trackSpecs(blocks);
   const out: SceneRef[] = [];
-  let last: string | null = null;
+  let last: string | null = null, lastSpec: Spec | null = null;
   at.forEach((p) => {
     let bestS: string | null = null, bestV = 0, bestJ = p;
     for (let j = p; j >= Math.max(0, p - 6); j--) {
@@ -80,13 +101,27 @@ export function autoStage(blocks: Block[], density: Density): SceneRef[] {
         if (v > bestV) { bestV = v; bestS = s; bestJ = j; }
       }
     }
+    // A scene composed from the passage itself, when the text says more about its own scene
+    // (a place, an hour, a sky, things) than any drawn library scene matches it.
+    const spec = specs[p];
+    if (spec && art !== "library") {
+      const win = blocks.slice(Math.max(0, p - 1), p + 1).filter(isProse).map((b) => b.text).join(" ");
+      const comp = concreteness(evidence(win)) * 0.55;
+      if (art === "composed" || !bestS || comp > bestV) {
+        const id = encode(cut(spec, lastSpec));
+        lastSpec = decode(id);
+        out.push({ after: p, scene: id, caption: captionFor(blocks[p].text, id) });
+        last = id;
+        return;
+      }
+    }
     let scene: string = bestS || (last === fallback ? "lamp" : fallback);
     if (scene === last) {
       const alt = SCENE_LIST.filter((x) => x !== last);
       scene = fallback !== last ? fallback : alt[out.length % alt.length];
     }
     out.push({ after: p, scene, caption: captionFor(blocks[bestS ? bestJ : p].text, bestS) });
-    last = scene;
+    last = scene; lastSpec = null;
   });
   return out;
 }

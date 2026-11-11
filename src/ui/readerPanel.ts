@@ -9,7 +9,7 @@ import type { Settings } from "../types";
 import { bindControls, syncControls } from "./controls";
 import { finePointer } from "./light";
 import { applyLook } from "./look";
-import { chapters, onRendered, redrawAll, renderBook, resetWidths, scrollToBlock } from "./reader";
+import { chapters, figures, figuresShown, onRendered, redrawAll, renderBook, resetWidths, scrollToBlock, settingsChanged } from "./reader";
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -46,6 +46,23 @@ function fillToc(): void {
   });
 }
 
+/** The contact sheet: every picture with its line, to jump to. Left out when there are no pictures. */
+function fillFigs(): void {
+  const sec = document.getElementById("picSec"), ol = document.getElementById("figs");
+  if (!sec || !ol) return;
+  const fs = figuresShown() ? figures() : [];
+  sec.hidden = state.settings.style === "none";
+  ol.hidden = !fs.length;
+  ol.textContent = "";
+  fs.forEach((f) => {
+    const li = document.createElement("li"), b = document.createElement("button"); b.type = "button";
+    const n = document.createElement("span"); n.textContent = f.num;
+    b.append(n, document.createTextNode(f.caption));
+    b.addEventListener("click", () => scrollToBlock(f.after, true));
+    li.appendChild(b); ol.appendChild(li);
+  });
+}
+
 export function initReaderPanel(opts: { author: Settings; persist: (s: Settings | null) => void; relayout: () => void }): void {
   fillPickers();
   const panel = $("studio"), btn = $("openStudio");
@@ -65,21 +82,25 @@ export function initReaderPanel(opts: { author: Settings; persist: (s: Settings 
   head.addEventListener("pointerdown", (e) => { y0 = e.clientY; });
   head.addEventListener("pointerup", (e) => { if (y0 >= 0 && e.clientY - y0 > 60) set(false); y0 = -1; });
   bindControls(panel, (k, v) => {
-    const S = state.settings, old = S[k];
+    const S = state.settings, prev = { ...S }, old = S[k];
     S[k] = v; applyLook(); sync(); opts.persist(S);
     if (k === "theme" || k === "mode") redrawAll(true);
     if (STRUCTURAL[k] && old !== v) renderBook();
-    else if (k === "pairing" || k === "fontSize" || k === "measure") { resetWidths(); opts.relayout(); }
+    else {
+      if (k === "pairing" || k === "fontSize" || k === "measure") { resetWidths(); opts.relayout(); }
+      settingsChanged(prev);
+    }
   });
   btn.addEventListener("click", () => set(!panelOpen()));
   $("closeStudio").addEventListener("click", () => { set(false); btn.focus(); });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panelOpen()) set(false); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && panelOpen()) { set(false); btn.focus(); } });
   $("resetLook").addEventListener("click", () => {
     state.settings = { ...opts.author, readerControls: true };
     opts.persist(null); applyLook(); sync(); renderBook();
   });
   $("printBook").addEventListener("click", () => { set(false); printBook(); });
   onRendered(fillToc);
+  onRendered(fillFigs);
   sync();
 }
 

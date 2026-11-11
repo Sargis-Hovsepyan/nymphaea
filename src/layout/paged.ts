@@ -2,12 +2,10 @@
 // by side on a wide screen and one on a phone. A turn is a translate; nothing is measured glyph by
 // glyph. Running heads and folios come from a chapter map, the reading position is anchored to a
 // paragraph so a resize or a change of type lands on the same words.
-import { clamp } from "../scenes/helpers";
 import { geometry, pageAt, type Geometry } from "./geometry";
 export { geometry, pageAt };
 import { state } from "../state";
-import { chapterProgress, chapters, setPagedGo } from "../ui/reader";
-import { setProgressSource } from "../ui/light";
+import { chapters, noteBlock, setPagedGo } from "../ui/reader";
 
 let g: Geometry | null = null, spread = 0, pages = 1, anchor = -1, inited = false, chrome: HTMLElement | null = null;
 const turned: (() => void)[] = [];
@@ -72,6 +70,7 @@ function show(animate = true): void {
     if (pageOf(b) >= firstPage) { anchor = +(b.getAttribute("data-b") || 0); break; }
   }
   paintChrome();
+  if (anchor >= 0) noteBlock(anchor);
   const prog = document.getElementById("prog"), pct = document.getElementById("pct");
   const last = Math.min(pages, firstPage + g.per);
   if (prog) prog.style.width = (pages > 1 ? (last / pages) * 100 : 100) + "%";
@@ -86,15 +85,6 @@ export function turn(d: number): void {
 }
 export function goToPage(p: number): void { if (g) { spread = Math.max(0, Math.floor(p / g.per)); show(); } }
 export function pagedInfo(): { spread: number; pages: number; per: number } { return { spread, pages, per: g ? g.per : 1 }; }
-
-/** For Dawn: how far through the chapter the current spread is. */
-function chapterProgressPaged(): number {
-  if (!g) return 0;
-  const p = spread * g.per, starts = Array.from(document.querySelectorAll(".text .ch")).map(pageOf).concat(pages);
-  let a = 0, b = pages;
-  for (let k = 0; k < starts.length - 1; k++) if (starts[k] <= p) { a = starts[k]; b = starts[k + 1]; }
-  return clamp((p - a + 1) / Math.max(1, b - a));
-}
 
 function buildChrome(): void {
   if (!chrome) {
@@ -137,7 +127,6 @@ function paintChrome(): void {
 /** Keys, wheel, swipe and the page edges turn the page. Installed once. */
 export function initPaged(): void {
   setPagedGo((el) => goToPage(pageOf(el)));
-  setProgressSource(() => (on() ? chapterProgressPaged() : chapterProgress()));
   if (inited) return;
   inited = true;
   document.addEventListener("keydown", (e) => {

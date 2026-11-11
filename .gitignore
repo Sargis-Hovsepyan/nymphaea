@@ -1,2 +1,6 @@
 node_modules/
 .playwright-mcp/
+.impeccable/review/
+.impeccable/questions/
+.impeccable/hook.cache.json
+.DS_Store

@@ -1,5 +1,6 @@
 // The scene library and the keyword map used for automatic staging. Keywords are matched by stem
 // (stage/stem.ts), so "walked" finds "walk"; with a document model they are weighted by TF-IDF.
+import { isComposed } from "../compose/spec";
 import { idf, isStop, stem, type DocModel } from "./stem";
 
 export const SCENE_LIST = [
@@ -70,8 +71,13 @@ export const WORDS: Record<string, string> = {
 export const KW: Record<string, string> = {};
 Object.keys(WORDS).forEach((s) => WORDS[s].split(" ").forEach((w) => { const k = stem(w); if (!KW[k]) KW[k] = s; }));
 
-export function isScene(s: unknown): s is SceneId {
+export function isLibraryScene(s: unknown): s is SceneId {
   return typeof s === "string" && (SCENE_LIST as readonly string[]).includes(s);
+}
+
+/** A library scene id, or a well-formed composed scene ("gen:…"). */
+export function isScene(s: unknown): s is string {
+  return isLibraryScene(s) || isComposed(s);
 }
 
 export function words(t: string): string[] {

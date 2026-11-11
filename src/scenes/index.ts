@@ -13,3 +13,12 @@ export const SCENES: Record<string, SceneFn> = {
   lamp, pawn, knight, queen, king, door, rain, sea, moon, city, forest, candle, road, lotus,
 };
 SCENE_LIST.forEach((s) => { if (!SCENES[s]) SCENES[s] = canvasScene(s); });
+
+const composed = new Map<string, SceneFn>();
+/** The canvas scene for any id: a library scene, or a composed one drawn from its vector model. */
+export function sceneFn(name: string): SceneFn {
+  if (SCENES[name]) return SCENES[name];
+  let fn = composed.get(name);
+  if (!fn) { fn = canvasScene(name); if (composed.size > 200) composed.clear(); composed.set(name, fn); }
+  return fn;
+}
