@@ -5,6 +5,8 @@ import type { Settings } from "../types";
 export interface Preset { id: string; name: string; note: string; s: Partial<Settings> }
 
 export const PRESETS: Preset[] = [
+  { id: "parchment", name: "Parchment", note: "Ink drawings on yellowed paper",
+    s: { layout: "scroll", theme: "parchment", mode: "light", pairing: "literary", light: "off", flicker: true, style: "ink", para: "web", align: "ragged", opening: "drop", ornament: "asterism", reveal: "rise", numerals: "roman", frame: "inline", leading: "normal", hyphens: false, paper: "grain", chapterStyle: "classic", cover: "picture" } },
   { id: "lamplight", name: "Lamplight", note: "Scroll by lamplight, ink drawings",
     s: { layout: "scroll", theme: "lamplight", mode: "dark", pairing: "literary", light: "lamp", flicker: true, style: "ink", para: "web", align: "ragged", opening: "drop", ornament: "asterism", reveal: "rise", numerals: "roman", frame: "inline", leading: "normal", hyphens: false, paper: "none", chapterStyle: "classic", cover: "picture" } },
   { id: "first-edition", name: "First Edition", note: "Pages, Garamond, fleurons",

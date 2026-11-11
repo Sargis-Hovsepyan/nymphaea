@@ -19,7 +19,7 @@ const LINES = [
   "They embraced on the platform as the train left.",
 ];
 
-let mounted = false, style: Style = "cut", scene = "", line = "", typed = false;
+let mounted = false, style: Style = "ink", scene = "", line = "", typed = false;
 let pl: Player | null = null;
 let auto = { i: 0, pos: 0, wait: 0, timer: 0 };
 const still = reducedMotion;

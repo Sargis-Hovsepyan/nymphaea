@@ -6,7 +6,7 @@ import type { Pristine } from "./export";
 import { initPaged, layoutPaged } from "./layout/paged";
 import { initPrint } from "./layout/print";
 import { initMaker } from "./maker";
-import { migrate, withDefaults } from "./settings";
+import { migrate, studioLook, withDefaults } from "./settings";
 import { isImageData } from "./ai/store";
 import { guardScenes } from "./stage/guard";
 import { onMotionChange, state } from "./state";
@@ -78,7 +78,7 @@ function bootMaker(): void {
   makerEl.hidden = false;
   document.body.classList.add("mk-on");
   migrateLegacy();
-  state.settings = withDefaults(load(KEYS.settings));
+  state.settings = studioLook(load(KEYS.settings));
   initMaker(pristine);
 }
 

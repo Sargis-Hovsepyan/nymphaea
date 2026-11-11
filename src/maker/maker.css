@@ -55,6 +55,8 @@ summary.mk-icon::-webkit-details-marker{display:none}
 /* the drawing desk */
 .ld-desk{position:relative;margin:0;min-width:0;padding:10px;border-radius:22px;background:var(--panel);box-shadow:var(--float,var(--lift)),0 40px 90px -40px rgba(0,0,0,.8)}
 .ld-plate{position:relative;border-radius:14px;overflow:hidden;background:var(--lo);aspect-ratio:8/5}
+/* On yellowed paper the ink draws on the paper itself. */
+:root[data-mode="light"] .ld-plate{background:var(--hi);box-shadow:inset 0 0 0 1px var(--rule)}
 .ld-plate .art{position:absolute;inset:0;animation:ld-in .5s var(--e,ease-out) both}
 .ld-plate svg.vart{width:100%;height:100%}
 @keyframes ld-in{from{opacity:0;transform:scale(1.015)}}

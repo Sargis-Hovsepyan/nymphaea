@@ -115,7 +115,7 @@ export function buildEpub(book: Book, S: Settings, pictures: Picture[], now = ne
   const titlePage = page(B.title, (cover && S.cover === "picture" ? '<div class="cover-img"><img src="' + cover + '" alt=""/></div>' : "")
     + "<h1>" + esc(B.title) + "</h1>" + (B.subtitle ? '<p class="sub">' + esc(B.subtitle) + "</p>" : "") + (B.author ? '<p class="by">' + esc(B.author) + "</p>" : "")
     + (B.dedication ? '<p class="ded">' + lines(B.dedication) + "</p>" : ""));
-  const colophon = page("Colophon", '<p class="colophon">' + esc((B.author ? B.title + " by " + B.author + ". " : "") + "Set in " + (PAIRINGS[S.pairing] || PAIRINGS.literary).note + ". Made with " + APP_NAME + ".") + "</p>");
+  const colophon = page("Colophon", '<p class="colophon">' + esc("Made with " + APP_NAME) + "</p>");
   const clean = (t: string) => t.replace(/\*+/g, "");
   const nav = page("Contents", '<nav epub:type="toc" id="toc"><h2>Contents</h2><ol>'
     + chapters.map((c, k) => '<li><a href="ch' + (k + 1) + '.xhtml">' + esc((c.num ? c.num + ". " : "") + clean(c.title)) + "</a></li>").join("") + "</ol></nav>");

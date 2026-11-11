@@ -2,8 +2,7 @@
 // stored: chapters get their numerals and openers, a quote after a heading is set as an epigraph,
 // verse keeps its lines, and every caption has passed the Guard.
 import { APP_NAME } from "../brand";
-import { PAIRINGS, numeral } from "../design/type";
-import { THEMES } from "../design/themes";
+import { numeral } from "../design/type";
 import { appendInline, isBreak, plain } from "../inline";
 import { R, readTokens, tok, type ArtItem } from "../renderers";
 import { engrave, flow, riso, stipple } from "../renderers/print";
@@ -232,14 +231,12 @@ export function renderBook(): void {
     if (S.style !== "none" && byAfter[i]) byAfter[i].forEach((s) => { if (!heads.has(s)) text.appendChild(figure(s, i)); });
   });
 
-  // The end: the lotus closes as you reach the last line; then the colophon.
+  // The end: the lotus closes as you reach the last line; then one line, Made with Nymphaea.
   const end = el("div", "end");
   // The lotus closes the book only if no picture already shows one.
   if (S.style !== "none" && S.style !== "orn" && cs !== "lotus" && !showsScene(scenes, "lotus")) { const m = makeArt("lotus", "a water lily closing for the night", { invert: true }); m.classList.add("mark"); end.appendChild(m); }
   else end.appendChild(ornament());
-  end.appendChild(el("span", null, "End"));
-  const P = PAIRINGS[S.pairing] || PAIRINGS.literary;
-  end.appendChild(el("p", "colophon", (B.author ? B.title + " by " + B.author + ". " : "") + "Set in " + P.note + ", in the " + (THEMES[S.theme] || THEMES.lamplight).name + " theme. Made with " + APP_NAME + "."));
+  end.appendChild(el("p", "colophon", "Made with " + APP_NAME));
   text.appendChild(end);
 
   // Words before each block, and the hour and weather in force at each (computed once per render).

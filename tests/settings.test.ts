@@ -10,7 +10,7 @@ const mix = (a: string, b: string, t: number) => "#" + [1, 3, 5].map((i) => Math
 
 describe("new book settings", () => {
   it("default to today's look", () => {
-    expect(DEFAULTS).toMatchObject({ frame: "inline", leading: "normal", hyphens: false, paper: "none", chapterStyle: "classic", cover: "picture", progress: "time", size: "m", density: "some" });
+    expect(DEFAULTS).toMatchObject({ frame: "inline", leading: "normal", hyphens: false, paper: "grain", chapterStyle: "classic", cover: "picture", progress: "time", size: "m", density: "some", theme: "parchment", mode: "light", style: "ink" });
   });
   it("accept every valid value and drop junk", () => {
     const ok = { frame: "head", leading: "loose", hyphens: true, paper: "linen", chapterStyle: "numeral", cover: "minimal", progress: "none", size: "full", density: "every" };
@@ -62,4 +62,16 @@ describe("paper textures", () => {
     expect(contrast(p.ink, bg)).toBeGreaterThanOrEqual(7);
     expect(contrast(p.muted, bg)).toBeGreaterThanOrEqual(4.5);
   })));
+});
+
+describe("the default look", () => {
+  it("opens in ink on yellowed paper, and the Studio moves an untouched old default to it", async () => {
+    const { studioLook } = await import("../src/settings");
+    expect(studioLook(null)).toMatchObject({ theme: "parchment", mode: "light", style: "ink", paper: "grain" });
+    expect(studioLook({ theme: "lamplight", mode: "dark", preset: "lamplight", rev: 3 })).toMatchObject({ theme: "parchment", style: "ink" });
+    // A look the author chose stays.
+    expect(studioLook({ theme: "nocturne", mode: "dark", style: "glow", preset: "nocturne", rev: 3 })).toMatchObject({ theme: "nocturne", style: "glow" });
+    // A book saved before keeps its look.
+    expect(withDefaults({ style: "cut", rev: 3 })).toMatchObject({ theme: "lamplight", mode: "dark", paper: "none" });
+  });
 });

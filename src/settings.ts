@@ -3,7 +3,7 @@ import { PAIRING_LIST } from "./design/type";
 import type { Density, Leading, Settings, Size } from "./types";
 
 /** Rev 3: themes × light/dark, type pairings, layouts and light modes replace room/lamp/font/dropcap. */
-export const SETTINGS_REV = 3;
+export const SETTINGS_REV = 4;
 
 export const DEFAULTS: Settings = {
   style: "ink",
@@ -14,9 +14,9 @@ export const DEFAULTS: Settings = {
   motion: true,
   captions: "cue",
   pictures: "on",
-  theme: "lamplight",
-  mode: "dark",
-  light: "lamp",
+  theme: "parchment",
+  mode: "light",
+  light: "off",
   follow: true,
   flicker: true,
   pairing: "literary",
@@ -29,7 +29,7 @@ export const DEFAULTS: Settings = {
   ornament: "asterism",
   leading: "normal",
   hyphens: false,
-  paper: "none",
+  paper: "grain",
   chapterStyle: "classic",
   cover: "picture",
   progress: "time",
@@ -38,7 +38,7 @@ export const DEFAULTS: Settings = {
   reveal: "rise",
   beats: true,
   readerControls: true,
-  preset: "lamplight",
+  preset: "parchment",
   rev: SETTINGS_REV,
 };
 
@@ -92,6 +92,11 @@ export function migrate(raw: unknown): Partial<Settings> {
   if (typeof o.font === "string" && !("pairing" in o)) out.pairing = o.font === "sans" ? "modern" : o.font === "mono" ? "typewriter" : "literary";
   // Justified text used to hyphenate on its own; keep that for books saved before the setting existed.
   if (!("hyphens" in o) && o.align === "justify") out.hyphens = true;
+  // Before rev 4 the default look was Lamplight: a look saved then keeps it for what it left unsaid.
+  if (Object.keys(o).length && (typeof o.rev !== "number" || o.rev < 4)) {
+    const OLD: Record<string, unknown> = { theme: "lamplight", mode: "dark", light: "lamp", paper: "none", preset: "lamplight" };
+    Object.keys(OLD).forEach((k) => { if (!(k in o) && !(k in out)) out[k] = OLD[k]; });
+  }
   // Rev 1 (no rev, a room) saved Dithered as its default style; rev 2 moved the default to Ink.
   const v1 = typeof o.rev !== "number" && "room" in o;
   (Object.keys(DEFAULTS) as (keyof Settings)[]).forEach((k) => {
@@ -108,4 +113,17 @@ export function migrate(raw: unknown): Partial<Settings> {
 
 export function withDefaults(raw: unknown): Settings {
   return { ...DEFAULTS, ...migrate(raw) };
+}
+
+/**
+ * The Studio's own saved look. One still on the old default (Lamplight, never changed) opens in the
+ * new default; a look the author chose is kept. Books keep their look either way (see migrate).
+ */
+export function studioLook(raw: unknown): Settings {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const old = typeof o.rev === "number" && o.rev < 4 && (o.preset ?? "lamplight") === "lamplight" && (o.theme ?? "lamplight") === "lamplight" && (o.mode ?? "dark") === "dark";
+  if (!old) return withDefaults(raw);
+  const s = withDefaults(raw);
+  (["theme", "mode", "light", "paper", "preset", "style"] as const).forEach((k) => { (s as unknown as Record<string, unknown>)[k] = DEFAULTS[k]; });
+  return s;
 }

@@ -1,4 +1,4 @@
-// The Studio's own palette: jet black (60%), space gray (30%) and forest green (10%), dark first. Not a book theme: it only dresses
+// The Studio's own palette: yellowed paper and sepia ink by default, or jet black, space gray and forest green in the dark. Not a book theme: it only dresses
 // the app around the book. Same token names as a book palette so the shared styles just work,
 // plus `raised` (cards, sheets) and `pollen` (the few places that need a second signal).
 import { rgb, type Palette } from "./themes";
@@ -7,7 +7,7 @@ export interface StudioPalette extends Palette { raised: string; pollen: string 
 
 export const STUDIO: { dark: StudioPalette; light: StudioPalette } = {
   dark: { desk: "#0a0a0b", panel: "#1d1f23", raised: "#272a2f", rule: "#33373d", ink: "#eceef0", muted: "#9aa0a8", accent: "#3f9a6b", accent2: "#7fcfa3", pollen: "#e0a645", hi: "#e6e8ea", lo: "#0a0a0b" },
-  light: { desk: "#cfd2d6", panel: "#f3f4f5", raised: "#fbfbfc", rule: "#c3c7cc", ink: "#0c0d0e", muted: "#50565e", accent: "#24603f", accent2: "#1d5a3a", pollen: "#9a6200", hi: "#f3f4f5", lo: "#0c0d0e" },
+  light: { desk: "#e8d9b0", panel: "#f3e7c6", raised: "#f9f0d8", rule: "#d3be8c", ink: "#2a1f12", muted: "#5a4628", accent: "#7a3a16", accent2: "#6b3414", pollen: "#8a5200", hi: "#f3e7c6", lo: "#2a1f12" },
 };
 
 export function studioVars(dark: boolean): Record<string, string> {

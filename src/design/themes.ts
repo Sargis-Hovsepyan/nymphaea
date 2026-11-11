@@ -1,8 +1,8 @@
-// Six themes, each in a dark dim and a light dim mood. Nothing is pure white or pure black: warm
+// Seven themes, each in a dark dim and a light dim mood. Nothing is pure white or pure black: warm
 // greys, one accent (plus a second ink for two-colour styles) and hairline rules. Every palette is
 // contrast-tested (tests/design.test.ts): body ≥ 7:1, muted ≥ 4.5:1, accent ≥ 3:1 on the page.
 
-export type Theme = "lamplight" | "nocturne" | "vellum" | "sumi" | "moss" | "riso";
+export type Theme = "parchment" | "lamplight" | "nocturne" | "vellum" | "sumi" | "moss" | "riso";
 export type Mode = "auto" | "light" | "dark";
 
 export interface Palette {
@@ -16,9 +16,14 @@ export interface Palette {
   /** Picture highlight and shadow (the canvas renderers' two inks). */ hi: string; lo: string;
 }
 
-export const THEME_LIST: readonly Theme[] = ["lamplight", "nocturne", "vellum", "sumi", "moss", "riso"];
+export const THEME_LIST: readonly Theme[] = ["parchment", "lamplight", "nocturne", "vellum", "sumi", "moss", "riso"];
 
 export const THEMES: Record<Theme, { name: string; note: string; dark: Palette; light: Palette }> = {
+  parchment: {
+    name: "Parchment", note: "yellowed paper, sepia ink",
+    dark: { desk: "#1e1810", panel: "#272015", ink: "#ecdfbd", muted: "#b0a07c", rule: "#3d3322", accent: "#d8a24c", accent2: "#a9b46e", hi: "#ecdfbd", lo: "#1e1810" },
+    light: { desk: "#eedfb8", panel: "#f4e8c6", ink: "#2f2414", muted: "#5e4a2c", rule: "#d8c495", accent: "#8c3f17", accent2: "#5f6a2a", hi: "#f4e8c6", lo: "#2f2414" },
+  },
   lamplight: {
     name: "Lamplight", note: "amber lamp, warm charcoal",
     dark: { desk: "#141210", panel: "#1b1916", ink: "#e6dfd0", muted: "#9d9686", rule: "#2f2b26", accent: "#e0a645", accent2: "#7f9cc9", hi: "#ece4d2", lo: "#141210" },

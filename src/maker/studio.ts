@@ -5,8 +5,8 @@ import { sceneThumb } from "../vscenes/model";
 import { load, store } from "../store";
 
 export const STUDIO_MODE = "nymphaea-studio-mode";
-/** Dark unless the author chose otherwise: the Studio is a jet black room around the book. */
-export function studioMode(): Mode { const m = load<Mode>(STUDIO_MODE); return m === "light" || m === "auto" ? m : "dark"; }
+/** Light (yellowed paper) unless the author chose otherwise. */
+export function studioMode(): Mode { const m = load<Mode>(STUDIO_MODE); return m === "dark" || m === "auto" ? m : "light"; }
 
 const MODE_ICON: Record<Mode, string> = {
   light: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>',
@@ -46,7 +46,7 @@ export function initStudioMode(onChange: () => void): void {
   applyStudio(onChange);
   matchMedia("(prefers-color-scheme: light)").addEventListener?.("change", () => { if (studioMode() === "auto") applyStudio(onChange); });
   document.querySelectorAll(".mk-mode").forEach((b) => b.addEventListener("click", () => {
-    const order: Mode[] = ["dark", "light", "auto"], next = order[(order.indexOf(studioMode()) + 1) % 3];
+    const order: Mode[] = ["light", "dark", "auto"], next = order[(order.indexOf(studioMode()) + 1) % 3];
     store(STUDIO_MODE, next); applyStudio(onChange);
   }));
 }
