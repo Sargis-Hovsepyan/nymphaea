@@ -15,7 +15,7 @@ export interface Preview {
   snapshots(): Promise<Snapshot[]>;
 }
 
-export function createPreview(frame: HTMLIFrameElement, p: Pristine, settings: Settings, onPick?: (block: number, fig?: number) => void, onView?: (fig: number) => void, onWhere?: (block: number) => void): Preview {
+export function createPreview(frame: HTMLIFrameElement, p: Pristine, settings: Settings, onPick?: (block: number, fig?: number) => void, onView?: (fig: number) => void, onWhere?: (block: number) => void, onSelect?: (from: number, to: number, text: string) => void): Preview {
   let ready = false, pending: PreviewMsg | null = null, timer = 0, seq = 0, imgs: Record<string, string> = {}, imgKey = "";
   const waiting = new Map<number, (s: Snapshot[]) => void>();
   const post = (m: PreviewMsg) => frame.contentWindow?.postMessage({ ns: PREVIEW_NS, ...m }, "*");
@@ -29,6 +29,7 @@ export function createPreview(frame: HTMLIFrameElement, p: Pristine, settings: S
     if (d.type === "pick" && onPick) onPick(+d.block, typeof d.fig === "number" ? d.fig : -1);
     if (d.type === "view" && onView) onView(typeof d.fig === "number" ? d.fig : -1);
     if (d.type === "where" && onWhere) onWhere(+d.block);
+    if (d.type === "select" && onSelect) onSelect(+d.from, +d.to, typeof d.text === "string" ? d.text : "");
     if (d.type === "snapshots-done") { const f = waiting.get(d.id); if (f) { waiting.delete(d.id); f(d.images || []); } }
   });
   frame.srcdoc = buildBookHtml(p, null, settings, { preview: true });

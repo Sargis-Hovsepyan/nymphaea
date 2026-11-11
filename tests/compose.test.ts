@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { vscene } from "../src/compose";
 import { evidence, readSpec, trackSpecs } from "../src/compose/read";
-import { PLACES, POSES, PROPS, SHOTS, SKIES, TIMES, blank, decode, describe as describeSpec, encode, fromLoose, isWater, type Spec } from "../src/compose/spec";
+import { FX, PLACES, POSES, PROPS, SHOTS, SKIES, TIMES, blank, decode, describe as describeSpec, encode, fromLoose, isWater, type Spec } from "../src/compose/spec";
 import { layout } from "../src/compose/layout";
 import { cut } from "../src/stage/auto";
 import { parseText } from "../src/parse";
@@ -236,7 +236,8 @@ describe("reading more of the scene", () => {
     const e = evidence("There was no moon and not a lamp in the street.");
     expect(e.time.night).toBeUndefined();
     expect(e.props.lamp).toBeUndefined();
-    expect(e.place.city).toBe(1);
+    // "in the street": a place right after a preposition counts double.
+    expect(e.place.city).toBe(2);
   });
 
   it("does not read common words as things", () => {
@@ -271,5 +272,53 @@ describe("contrast in the canvas source", () => {
   it("a night sky is never as dark as a figure", () => {
     const m = vscene(encode({ ...base, place: "field", time: "night", who: 1 })).build("c");
     expect(m).toMatch(/class="sky"[^>]*data-h="night"/);
+  });
+});
+
+describe("motion read from the text", () => {
+  const fx = (t: string) => readSpec(t).fx || [];
+  it("reads what moves", () => {
+    expect(fx("Smoke curled from the chimney of the cottage at dusk.")).toContain("rise");
+    expect(fx("A shooting star fell across the night sky above the field.")).toContain("star");
+    expect(fx("A shooting star fell across the night sky above the field.")).not.toContain("fall");
+    expect(fx("The gulls flew off the harbour wall as the waves crashed in.")).toEqual(expect.arrayContaining(["fly", "swell"]));
+    expect(fx("The candle flickered in the kitchen.")).toContain("flicker");
+    expect(fx("In the garden the petals were falling.")).toContain("fall");
+  });
+  it("keeps only motion the scene can show", () => {
+    expect(fx("A comet crossed the sky at noon over the field.")).not.toContain("star");
+    expect(fx("The waves of grief crashed through the kitchen.")).not.toContain("swell");
+  });
+  it("ignores motion the text denies, and stays empty for still passages", () => {
+    expect(fx("There was no smoke from the chimney.")).not.toContain("rise");
+    expect(readSpec("She sat in the quiet kitchen.").fx).toBeUndefined();
+  });
+  it("counts a place after a preposition double", () => {
+    expect(evidence("She walked into the forest.").place.forest).toBe(2);
+    expect(evidence("The forest was old.").place.forest).toBe(1);
+  });
+  it("reads present-tense verbs as poses", () => {
+    expect(readSpec("She sits by the window in the room.").pose).toBe("sit");
+    expect(readSpec("He runs down the road.").pose).toBe("run");
+    // "old bench" is not a person and "leaves" are not leaving.
+    expect(readSpec("In the autumn garden the leaves were falling around the old bench.").who).toBe(0);
+  });
+  it("round-trips motion and leaves ids without motion unchanged", () => {
+    const sp = { ...base, fx: ["rise", "star"] as Spec["fx"] };
+    expect(decode(encode(sp))!.fx).toEqual(["rise", "star"]);
+    const plain = encode(base);
+    expect(plain.split(".").length).toBe(10);
+    expect(decode(plain)!.fx).toBeUndefined();
+    expect(decode(plain + ".0")).toBeNull();
+    expect(describeSpec(sp)).toMatch(/smoke rising/);
+  });
+  it("every motion draws cleanly in every place", () => {
+    const problems: string[] = [];
+    PLACES.forEach((place, i) => TIMES.forEach((time) => {
+      const props = (["fire", "candle", "cup", "house", "tree", "flower"] as const).slice(i % 3, i % 3 + 3);
+      const id = encode({ ...base, place, time, props: [...props], who: 1, cast: [3], fx: [...FX], seed: i * 31, moment: i * 7 });
+      exercise(id).forEach((x) => problems.push(id + ": " + x));
+    }));
+    expect(problems).toEqual([]);
   });
 });

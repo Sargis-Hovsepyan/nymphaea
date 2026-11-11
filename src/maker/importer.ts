@@ -1,14 +1,10 @@
-// Getting text in: files (dropped or chosen), the sample, and the report that says what was done.
+// Getting text in: files (dropped or chosen), pasted text, and the report that says what was done.
 // A new file always starts a new book. The book being edited goes to the shelf first, untouched.
 import { ACCEPT, importFiles } from "../import/files";
-import { SEED_TEXT, SEED_TITLE } from "../seed";
-import { SEED_SCENES } from "../sample";
-import { guardScenes } from "../stage/guard";
 import { state } from "../state";
-import { $, book, hasText, hooks, plural, sess, setMd, setMetaFields } from "./session";
+import { $, book, hasText, plural, sess, setMd, setMetaFields } from "./session";
 import { newBook, landingOpen, showWork } from "./shelf";
 import { rebuildText } from "./rebuild";
-import { toast } from "./ui";
 
 export function report(lines: string[], opts: { warn?: boolean; busy?: string; dismiss?: boolean } = {}): void {
   const r = landingOpen() ? $("mkLdReport") : $("mkReport");
@@ -56,24 +52,12 @@ export async function doImport(files: FileList | File[]): Promise<void> {
   }
 }
 
-export async function loadSample(): Promise<void> {
-  if (hasText()) await newBook();
-  loadText("# " + SEED_TITLE + "\n\n" + SEED_TEXT.join("\n\n"), "");
-  const B = book();
-  B.scenes = guardScenes(B.blocks, SEED_SCENES).scenes; B.source = "hand";
-  hooks.refresh();
-  $("mkLdReport").hidden = true; $("mkReport").hidden = true;
-  showWork("manuscript", "text");
-  toast("Loaded the sample episode with its hand-placed pictures.");
-}
-
 /** Wire the file picker, drag and drop. */
 export function initImporter(): void {
   const fileIn = $<HTMLInputElement>("mkFiles");
   fileIn.accept = ACCEPT;
   fileIn.addEventListener("change", () => { if (fileIn.files) doImport(Array.from(fileIn.files)); fileIn.value = ""; });
   $("mkPaste").addEventListener("click", () => { showWork("manuscript", "text"); $("mkMd").focus(); });
-  $("mkSample").addEventListener("click", () => { loadSample(); });
   let depth = 0;
   const mk = sess.mk;
   const hasFiles = (e: DragEvent) => !!e.dataTransfer && Array.from(e.dataTransfer.types).includes("Files");

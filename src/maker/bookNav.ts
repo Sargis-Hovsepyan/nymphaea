@@ -2,20 +2,22 @@
 // index down the fore edge of the live book (one tab per chapter, as tall as the chapter is long,
 // with a mark for every picture), and the picture inspector that shows which words drove a picture.
 // Display only: nothing here changes the author's words.
-import { namedWords, trackSpecs, type Named } from "../compose/read";
-import { decode, describe, LABEL, SHOTS, type Spec } from "../compose/spec";
+import { namedWords, QUOTE_WINDOW, readQuoteAt, trackSpecs, type Named } from "../compose/read";
+import { shown } from "../stage/locate";
+import { rowsHtml, rowsOf, rowsOfReading } from "./readout";
+import { decode, describe, SHOTS, type Spec } from "../compose/spec";
 import { plain } from "../inline";
 import { words } from "../stage/keywords";
 import type { Block } from "../types";
 import { composeFor, editSpec, GEN_ACTIONS, openCard, pNumber } from "./pictures";
 import { checkpoint } from "./undo";
-import { $, book, commitScenes, narrow, plural, sess } from "./session";
+import { $, book, commitScenes, hooks, narrow, plural, sess } from "./session";
 import { setPane } from "./ui";
 import { setView } from "./views";
+import { cap, clip, esc } from "../text/strings";
 
 export interface Chapter { title: string; start: number; end: number; words: number; pics: number[] }
 
-const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI", "XVII", "XVIII", "XIX", "XX"];
 
 /** The book's chapters: "#" headings, else "##", else the whole book as one. Pure. */
@@ -88,12 +90,13 @@ export const readingBlock = (): number => whereBlock;
 let inspK = -1;
 const SHOT_NAME: Record<string, string> = { wide: "Wide", mid: "Nearer", close: "Close" };
 const PRONOUNS = new Set(["i", "me", "my", "he", "him", "his", "she", "her", "hers", "we", "us", "our", "they", "them", "their", "you", "your", "it"]);
-const KIND: [keyof Named, string][] = [["place", "Place"], ["props", "Things"], ["time", "Hour"], ["sky", "Weather"], ["season", "Season"], ["people", "People"], ["pose", "Doing"]];
 
 export function closeInspector(): void {
   if (inspK < 0) return;
   inspK = -1; $("mkInsp").hidden = true;
   sess.preview.send({ type: "mark", block: -1, words: [] });
+  if (!$("mkWords").hidden) return;
+  sess.preview.send({ type: "span", from: 0, to: 0, text: "" });
 }
 
 /** Open the inspector for picture k: what the text named, the shot, and quick changes. */
@@ -108,25 +111,25 @@ export function inspect(k: number): void {
   const nw = namedWords(plain(passage));
   // Pronouns count people for the drawing but make poor evidence to show.
   nw.people = nw.people.filter((w) => !PRONOUNS.has(w.toLowerCase()));
-  // The staged reading (place, hour, weather, season, things, figures), each with the words that named it.
-  const val: Partial<Record<keyof Named, string>> = rd ? {
-    place: rd.place === "inner" ? "" : LABEL.place[rd.place].replace(/^(a|an|the) /, ""), time: rd.time, sky: rd.sky === "clear" ? "" : rd.sky,
-    season: rd.season === "none" ? "" : rd.season, props: rd.props.map((p) => LABEL.prop[p].replace(/^(a|an) /, "")).join(", "),
-    people: rd.who ? String(rd.who) + (rd.who === 1 ? " figure" : " figures") : "", pose: rd.who && rd.pose !== "stand" ? LABEL.pose[rd.pose] : "",
-  } : {};
-  const rows = KIND.filter(([key]) => val[key] || nw[key].length).map(([key, label]) =>
-    `<dt>${label}</dt><dd>${val[key] ? `<span class="v">${esc(val[key]!)}</span>` : ""}${nw[key].slice(0, 3).map((w) => `<span class="w">${esc(w)}</span>`).join("")}</dd>`).join("");
+  // The staged reading (place, hour, weather, season, things, figures, motion), each with the words that named it.
+  const rq = s.quote && sp ? readQuoteAt(B.blocks, s.after, s.quote) : null;
+  const named = rq ? rq.named.words : nw;
+  const list = rq ? rowsOfReading(rq) : rd ? rowsOf(rd, nw) : [];
+  const rows = rowsHtml(list, 3);
+  const why = rq ? "Your words decide, the rest of the paragraph fills what they leave open, and the chapter carries the rest."
+    : list.some((r) => r.words.length) ? "Green words are marked in the book. The rest is carried from the chapter around it." : "The passage names little, so the setting is carried from the chapter around it.";
   const box = $("mkInsp");
   box.innerHTML = `<header><b>Picture ${k + 1}</b><span>¶ ${pNumber(s.after)}</span><button type="button" class="mk-icon" data-a="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>` +
+    (s.quote ? `<blockquote class="in-q">${esc(clip(shown(s.quote), 180))}</blockquote>` : "") +
     (sp ? `<p class="in-d">${esc(cap(describe(sp)))}</p>` : `<p class="in-d">A drawn scene from the library.</p>`) +
-    (rows ? `<dl class="in-f">${rows}</dl><p class="in-why">${KIND.some(([key]) => nw[key].length) ? "Green words are marked in the book. The rest is carried from the chapter around it." : "The passage names little, so the setting is carried from the chapter around it."}</p>` : "") +
+    (rows ? `<dl class="in-f layered">${rows}</dl><p class="in-why">${why}</p>` : "") +
     (sp ? `<div class="seg in-shot" role="group" aria-label="Shot">${SHOTS.map((v) => `<button type="button" data-shot="${v}" aria-pressed="${sp.shot === v}">${SHOT_NAME[v]}</button>`).join("")}</div>` : "") +
-    `<div class="in-acts">${sp ? "" : `<button type="button" class="btn primary" data-a="compose" title="Draw this picture from what the passage says, with shot, vary and shuffle">Compose from the text</button>`}${sp ? GEN_ACTIONS.map((a) => `<button type="button" class="btn" data-g="${a.id}" title="${esc(a.title)}">${a.label}</button>`).join("") : ""}<button type="button" class="btn" data-a="card">Edit</button></div>`;
+    `<div class="in-acts">${sp ? "" : `<button type="button" class="btn primary" data-a="compose" title="Draw this picture from what the passage says, with shot, vary and shuffle">Compose from the text</button>`}${sp ? GEN_ACTIONS.map((a) => `<button type="button" class="btn" data-g="${a.id}" title="${esc(a.title)}">${a.label}</button>`).join("") : ""}<button type="button" class="btn" data-a="words" title="Select the words in the book this picture should show">${s.quote ? "Other words" : "Choose words"}</button><button type="button" class="btn" data-a="card">Edit</button></div>`;
   box.hidden = false;
-  const all = KIND.flatMap(([key]) => nw[key]);
+  const all = (Object.keys(named) as (keyof Named)[]).flatMap((key) => named[key]).filter((w) => !PRONOUNS.has(w.toLowerCase()));
   sess.preview.send({ type: "mark", block: s.after, words: all });
+  if (s.quote) { const parts = s.quote.split("\n"); sess.preview.send({ type: "span", from: Math.max(0, s.after - parts.length + 1 - QUOTE_WINDOW), to: s.after, text: shown(s.quote) }); }
 }
-const cap = (t: string) => t ? t[0].toUpperCase() + t.slice(1) : t;
 
 function onInspClick(e: Event): void {
   const t = (e.target as HTMLElement).closest("button"); if (!t || inspK < 0) return;
@@ -135,10 +138,11 @@ function onInspClick(e: Event): void {
   if (t.dataset.a === "compose") {
     const B = book(), s = B.scenes[k]; if (!s) return;
     checkpoint(); keepInsp = true;
-    s.scene = composeFor(s.after); delete s.img; delete s.prompt;
+    s.scene = composeFor(s.after, s.quote); delete s.img; delete s.prompt;
     commitScenes(B.scenes); inspect(k); return;
   }
   if (t.dataset.a === "card") { setPane("manuscript", "pictures"); openCard(k, true); return; }
+  if (t.dataset.a === "words") { closeInspector(); hooks.armWords(k); return; }
   keepInsp = true;
   if (t.dataset.shot) { editSpec(k, (sp: Spec) => ({ ...sp, shot: t.dataset.shot as Spec["shot"] })); inspect(k); return; }
   const g = GEN_ACTIONS.find((a) => a.id === t.dataset.g);

@@ -17,7 +17,7 @@ import { applyDraft, blankBook, saveDraft, savedDraft } from "./draft";
 import { LAYOUT_NAME, LIGHT_NOTE, STYLE_NAME, buildStyles, buildThemes, firstLine, markPresets, resetLook, setOpt, specimens } from "./design";
 import { mountEditor } from "./editor";
 import { initImporter } from "./importer";
-import { checkPick, initPick, onPick, onView } from "./pick";
+import { checkPick, initPick, onPick, onSelect, onView } from "./pick";
 import { initScenes, renderScenes } from "./pictures";
 import { createPreview } from "./preview";
 import { rebuildText } from "./rebuild";
@@ -32,8 +32,8 @@ import { initNav, onWhere, renderNav } from "./bookNav";
 import { initExtras, refreshExtras } from "./extras";
 import { initViews, refreshView } from "./views";
 import { load, store } from "../store";
-import { initUiState, rememberTab, savedTab } from "./uiState";
-import { saveState, setPane, toast, watchPane, type Pane, type Tab } from "./ui";
+import { initUiState } from "./uiState";
+import { saveState, setPane, toast, type Pane, type Tab } from "./ui";
 
 let specKey = "";
 
@@ -104,7 +104,7 @@ export function initMaker(p: Pristine): void {
   hooks.refresh = refresh; hooks.renderScenes = renderScenes;
   initStudioMode(() => { if (sess.ready) renderScenes(); });
   studioFonts();
-  sess.preview = createPreview($<HTMLIFrameElement>("mkFrame"), p, state.settings, onPick, onView, onWhere);
+  sess.preview = createPreview($<HTMLIFrameElement>("mkFrame"), p, state.settings, onPick, onView, onWhere, onSelect);
   sess.editor = mountEditor($<HTMLTextAreaElement>("mkMd"), $("mkHi"), $("mkScroll"));
 
   // Restore the last draft (or the last book from the old Studio), else start empty.
@@ -113,7 +113,6 @@ export function initMaker(p: Pristine): void {
   $("mkWork").hidden = false;
 
   // Panes and tabs
-  watchPane((_pane: Pane, tab: Tab) => rememberTab(tab));
   document.querySelector(".wk-nav")!.addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest("button"); if (b) setPane(b.dataset.pane as Pane, b.dataset.tab as Tab | undefined);
   });

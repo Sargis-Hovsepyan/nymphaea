@@ -8,13 +8,13 @@ import { newImageId, putImage } from "../ai/store";
 import { state } from "../state";
 import type { SceneRef } from "../types";
 import { aiConfig, imageReady } from "./ai";
-import { $, book, commitScenes, hooks, jobs, painting, pkey, plural, sceneNote, clearWarn, syncStop, sess } from "./session";
+import { $, book, commitScenes, hooks, jobs, painting, pkey, plural, clearWarn, syncStop, sess } from "./session";
 import { checkpoint } from "./undo";
 import { toast } from "./ui";
 
 export function briefFor(s: SceneRef) {
   const B = book(), S = state.settings, c = aiConfig();
-  return imageBrief(s.scene, B.blocks[s.after] ? B.blocks[s.after].text : B.title, S.style, c.image.withText);
+  return imageBrief(s.scene, s.quote || (B.blocks[s.after] ? B.blocks[s.after].text : B.title), S.style, c.image.withText);
 }
 
 export async function paint(s0: SceneRef, outer?: AbortSignal): Promise<boolean> {

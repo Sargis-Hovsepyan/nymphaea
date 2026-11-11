@@ -21,7 +21,7 @@ export function showLanding(): void {
   $("mkLanding").hidden = false;
   ($("mkWork") as HTMLElement & { inert: boolean }).inert = true;
   $("mkBack").hidden = !hasText();
-  mountLanding(sess.pristine);
+  mountLanding();
   $("mkLanding").scrollTop = 0;
   renderShelf();
 }
@@ -87,7 +87,7 @@ function card(b: Shelved, list: HTMLElement): HTMLElement {
       if (wasNow) { blankBook(); saveDraft(); hooks.refresh(); $("mkBack").hidden = true; }
       await renderShelf();
       sweepPaintings();
-      const first = list.querySelector<HTMLElement>(".bk-open"); if (first) first.focus(); else $("mkSample").focus();
+      const first = list.querySelector<HTMLElement>(".bk-open"); if (first) first.focus(); else $("mkPaste").focus();
     });
     row.append(yes, no); li.append(p, row);
     li.setAttribute("role", "group"); li.setAttribute("aria-labelledby", p.id);

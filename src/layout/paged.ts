@@ -8,8 +8,6 @@ import { state } from "../state";
 import { chapters, noteBlock, setPagedGo } from "../ui/reader";
 
 let g: Geometry | null = null, spread = 0, pages = 1, anchor = -1, inited = false, chrome: HTMLElement | null = null;
-const turned: (() => void)[] = [];
-export function onTurn(fn: () => void): void { turned.push(fn); }
 
 /** Is the event target inside an element matching sel? (Key events can target the document.) */
 const inside = (t: EventTarget | null, sel: string) => t instanceof Element && !!t.closest(sel);
@@ -75,7 +73,6 @@ function show(animate = true): void {
   const last = Math.min(pages, firstPage + g.per);
   if (prog) prog.style.width = (pages > 1 ? (last / pages) * 100 : 100) + "%";
   if (pct) pct.textContent = (firstPage + 1) + (g.per > 1 && last > firstPage + 1 ? "–" + last : "") + " / " + pages;
-  turned.forEach((fn) => fn());
 }
 
 export function turn(d: number): void {
@@ -84,7 +81,6 @@ export function turn(d: number): void {
   if (n !== spread) { spread = n; show(); }
 }
 export function goToPage(p: number): void { if (g) { spread = Math.max(0, Math.floor(p / g.per)); show(); } }
-export function pagedInfo(): { spread: number; pages: number; per: number } { return { spread, pages, per: g ? g.per : 1 }; }
 
 function buildChrome(): void {
   if (!chrome) {

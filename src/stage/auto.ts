@@ -1,7 +1,7 @@
 import { isBreak } from "../inline";
 import { isProse } from "../parse";
 import { DENS } from "../settings";
-import { concreteness, evidence, specStems, trackSpecs } from "../compose/read";
+import { concreteness, evidence, readQuoteAt, specStems, trackSpecs } from "../compose/read";
 import { decode, encode, type Spec } from "../compose/spec";
 import type { Art, Block, Density, SceneRef } from "../types";
 import { KW, SCENE_LIST, WORDS, bestScene, scoreOf, words } from "./keywords";
@@ -35,6 +35,38 @@ export function captionFor(t: string, scene: string | null): string {
   return out;
 }
 
+/** A caption from chosen words: all of them when short, else the clause in them that names the scene. */
+export function captionOf(quote: string, scene: string): string {
+  const part = quote.split("\n").map((x) => x.trim()).filter(Boolean).sort((a, b) => b.length - a.length)[0] || "";
+  if (part.length <= 80 && part.split(/\s+/).length <= 10) return part;
+  return captionFor(part, scene);
+}
+
+/** The sentences of a paragraph, exactly as written. */
+export function sentences(t: string): string[] {
+  return (t.match(/[^.!?…]+(?:[.!?…]+["”’)\]]*|$)/g) || []).map((x) => x.trim()).filter((x) => /[\p{L}]/u.test(x));
+}
+
+/**
+ * The moment in a paragraph to picture: the one or two sentences that say the most about their own
+ * scene (a place, an hour, a sky, things, people). Null when the paragraph is one moment already,
+ * or when no part of it is more concrete than the whole.
+ */
+export function momentOf(t: string): string | null {
+  const ss = sentences(t);
+  if (ss.length < 2) return null;
+  let best: string | null = null, bv = 0.99;
+  for (let i = 0; i < ss.length; i++) for (const n of [1, 2]) {
+    if (i + n > ss.length || n >= ss.length) continue;
+    const w = ss.slice(i, i + n).join(" ");
+    const e = evidence(w), len = w.split(/\s+/).length;
+    const v = concreteness(e) + (e.one + e.two + e.many > 0 ? 0.4 : 0) - Math.max(0, len - 40) * 0.05 - (n - 1) * 0.3;
+    if (v > bv) { bv = v; best = w; }
+  }
+  // Only when the moment is in the paragraph exactly as written (sentence joins can differ in spacing).
+  return best && t.replace(/\s+/g, " ").includes(best.replace(/\s+/g, " ")) ? best : null;
+}
+
 /**
  * Shot progression: when a picture shows the same place at the same hour as the one before, the
  * camera moves (wide, then nearer to the people, then close on a thing), so a chapter in one
@@ -49,7 +81,9 @@ export function cut(s: Spec, prev: Spec | null): Spec {
     if (shot === "close" && !s.props.length) continue;
     return { ...s, shot };
   }
-  return { ...s, moment: (s.moment + 487) % 1296 };
+  // No other shot fits: the camera moves to another spot in the same place (a new layout), so two
+  // pictures in a row never show the same view.
+  return { ...s, seed: (s.seed + 7919) % 46656, moment: (s.moment + 487) % 1296 };
 }
 
 /** The scene that best represents the whole text. */
@@ -108,9 +142,11 @@ export function autoStage(blocks: Block[], density: Density, art: Art = "mixed")
       const win = blocks.slice(Math.max(0, p - 1), p + 1).filter(isProse).map((b) => b.text).join(" ");
       const comp = concreteness(evidence(win)) * 0.55;
       if (art === "composed" || !bestS || comp > bestV) {
-        const id = encode(cut(spec, lastSpec));
+        // The picture shows one moment of the paragraph, not an average of all of it.
+        const q = momentOf(blocks[p].text), r = q ? readQuoteAt(blocks, p, q) : null;
+        const id = encode(cut(r ? r.spec : spec, lastSpec));
         lastSpec = decode(id);
-        out.push({ after: p, scene: id, caption: captionFor(blocks[p].text, id) });
+        out.push(r && q ? { after: p, scene: id, caption: captionOf(q, id), quote: q } : { after: p, scene: id, caption: captionFor(blocks[p].text, id) });
         last = id;
         return;
       }

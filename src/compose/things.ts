@@ -3,7 +3,7 @@
 // it. Parts that move carry data-a keys, and a mover animates them. Trees grow by species and
 // season. Pure markup.
 import { clamp, ease, lerp } from "../scenes/helpers";
-import { P, beamFill, circle, ellipse, f, pool, rect, seg, type Pt } from "../vscenes/shapes";
+import { P, beamFill, circle, ellipse, f, pool, rect, seg } from "../vscenes/shapes";
 import type { VApi } from "../vscenes";
 import type { Rng } from "./noise";
 import type { Place, Prop, Season } from "./spec";
@@ -282,4 +282,3 @@ export function shadow(w: number, lightDx: number, h: number): string {
   return path("shade", ellipse(dx * 0.5, 0, w * 0.5 + Math.abs(dx) * 0.6, Math.max(1, w * 0.07)));
 }
 
-export const pts = (xs: Pt[]) => P(xs);

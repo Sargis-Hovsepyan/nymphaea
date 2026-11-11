@@ -23,6 +23,9 @@ export const SIZE: Record<Prop, { w: number; h: number; real: number }> = {
   well: { w: 36, h: 40, real: 0.75 }, grave: { w: 16, h: 24, real: 0.5 }, rock: { w: 36, h: 18, real: 0.45 }, tent: { w: 52, h: 36, real: 1.1 },
 };
 
+/** Things a figure can hold, the most telling first. */
+export const HELD: readonly Prop[] = ["umbrella", "candle", "letter", "book", "cup", "glass"];
+
 /** Adult figure: native 100 tall, about 26 wide. */
 export const FIG_H = 100, FIG_W = 26;
 
@@ -43,8 +46,10 @@ export interface Item {
   s: number; w: number; h: number;
   face: 1 | -1;
   /** What it stands on. */
-  on: "ground" | "water" | "wall" | "ceiling" | "sky" | "table" | "bench" | "bed" | "chair" | "span" | "edge";
+  on: "ground" | "water" | "wall" | "ceiling" | "sky" | "table" | "bench" | "bed" | "chair" | "span" | "edge" | "boat" | "bridge";
   pose?: Pose;
+  /** A figure holding a thing in its hand: it is drawn with the arm, not stood on the ground. */
+  hold?: Prop;
   /** Sitting on something (not the ground). */
   seat?: boolean;
 }
@@ -178,6 +183,15 @@ export function layout(spec: Spec): Layout {
     }
   }
 
+  /* what the figure holds: an umbrella always, a light, a letter, a book or a cup when the words
+     say it is held, or when there is nothing to set it on */
+  let held: Prop | null = null;
+  if (figs.length) {
+    const surface = kept.some((p) => p === "table" || p === "bench" || p === "rock") || indoor;
+    const hands = HELD.filter((p) => kept.includes(p) && (p === "umbrella" || s.pose === "reach" || !surface));
+    if (hands.length) { held = hands[0]; const f0 = figs[0]; f0.hold = held; if (f0.pose === "stand" || f0.pose === "look") f0.pose = "reach"; }
+  }
+
   /* things */
   const place = (p: Prop, idx: number) => {
     const sz = SIZE[p];
@@ -230,10 +244,10 @@ export function layout(spec: Spec): Layout {
     it.x = best;
     items.push(it);
   };
-  kept.filter((p) => !SMALL.includes(p)).sort((a, b) => (a === "lamp" ? 1 : 0) - (b === "lamp" ? 1 : 0)).forEach((p) => place(p, s.props.indexOf(p)));
+  kept.filter((p) => !SMALL.includes(p) && p !== held).sort((a, b) => (a === "lamp" ? 1 : 0) - (b === "lamp" ? 1 : 0)).forEach((p) => place(p, s.props.indexOf(p)));
 
   // Small things need a surface: a table indoors (one is set if needed), a bench outside, else nothing.
-  const smalls = kept.filter((p) => SMALL.includes(p));
+  const smalls = kept.filter((p) => SMALL.includes(p) && p !== held);
   let table = items.find((q) => q.kind === "table");
   if (smalls.length && indoor && !table) { place("table", -1); table = items.find((q) => q.kind === "table"); }
   const top = table || items.find((q) => q.kind === "bench" || q.kind === "rock");
@@ -258,6 +272,20 @@ export function layout(spec: Spec): Layout {
       const bed = items.find((q) => q.kind === "bed");
       if (bed) { fg.x = bed.x + (k - (figs.length - 1) / 2) * 20 * bed.s; fg.y = bed.y - bed.h * 0.5; fg.s = bed.s * SIZE.bed.h / (SIZE.bed.real * FIG_H) * 1; fg.on = "bed"; }
       fg.h = FIG_W * fg.s; fg.w = FIG_H * fg.s;
+    }
+  });
+  // In the boat, on the bridge: where the words put the people.
+  const boat = items.find((q) => q.kind === "boat" && q.on === "water");
+  const bridge = items.find((q) => q.kind === "bridge");
+  figs.forEach((fg, k) => {
+    if (fg.on !== "ground") return;
+    if (boat && k === 0 && fg.pose !== "walk" && fg.pose !== "run") {
+      fg.s = boat.s * SIZE.boat.h / (SIZE.boat.real * FIG_H); fg.w = FIG_W * fg.s; fg.h = FIG_H * fg.s;
+      fg.x = boat.x - boat.face * 5 * boat.s; fg.y = boat.y - 3 * boat.s; fg.pose = fg.hold ? fg.pose : "sit"; fg.seat = true; fg.on = "boat";
+    } else if (bridge && fg.pose !== "sit" && fg.pose !== "lie" && water) {
+      const sc = px(bridge.y, 1) / FIG_H, gap = FIG_W * sc * (fg.pose === "pair" ? 0.7 : 1.3);
+      fg.s = sc; fg.w = FIG_W * sc; fg.h = FIG_H * sc;
+      fg.x = 160 + (focusX > 160 ? 40 : -40) + (k - (figs.length - 1) / 2) * gap; fg.y = bridge.y - 16 * bridge.s; fg.on = "bridge";
     }
   });
   items.push(...figs);

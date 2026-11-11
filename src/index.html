@@ -96,49 +96,67 @@
 
     <section class="ld-hero">
       <div class="ld-copy">
-        <h1 class="ld-h">Turn a manuscript into a book.</h1>
-        <p class="ld-lede">Drop in a PDF, a Word file, an EPUB or plain text. Nymphaea sets it as an illustrated book you can read on a screen, in spreads, on paper or on an e-reader. Your words are never changed.</p>
+        <p class="ld-eye">Illustrated books from plain text</p>
+        <h1 class="ld-h">Every passage, <span>drawn from its own words.</span></h1>
+        <p class="ld-lede">Drop in a manuscript. Nymphaea reads each passage for its place, its hour, the weather, the things in it and what moves, then draws a picture that acts it out. Read the book on a screen, in spreads, on paper or on an e-reader. Your words are never changed.</p>
         <div class="ld-cta">
           <label class="btn primary lg file">Open a file<input type="file" id="mkFiles" multiple></label>
           <button class="btn lg" id="mkPaste" type="button">Paste text</button>
-          <button class="btn lg" id="mkSample" type="button">Try the sample</button>
         </div>
         <div class="mk-report" id="mkLdReport" role="status" aria-live="polite" hidden></div>
-        <p class="ld-fine">You can also drop files anywhere on this page, or several episodes at once. Files stay on this device.</p>
+        <p class="ld-fine">PDF, Word, EPUB, web pages, Markdown or text. Drop files anywhere on this page, or a whole series at once. Files stay on this device.</p>
       </div>
-      <div class="ld-demo">
-        <div class="ld-frame"><iframe id="ldFrame" title="A sample book you can restyle"></iframe></div>
-        <div class="ld-chips" id="ldChips" role="group" aria-label="Try an edition"></div>
-      </div>
+
+      <section class="ld-desk" id="ldDesk" aria-label="Drawing desk">
+        <div class="ld-plate" id="ldPlate"></div>
+        <div class="ld-under">
+          <label class="ld-write">
+            <span class="sr-only">Write a sentence to draw</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>
+            <input id="ldLine" type="text" maxlength="220" autocomplete="off" spellcheck="false" placeholder="Write a sentence and watch it drawn">
+          </label>
+          <dl class="ld-read" id="ldRead" aria-label="What the sentence names"></dl>
+        </div>
+        <div class="ld-styles" id="ldStyles" role="group" aria-label="Picture style">
+          <button type="button" data-style="cut" aria-pressed="true">Cut paper</button>
+          <button type="button" data-style="glow" aria-pressed="false">Glow</button>
+          <button type="button" data-style="ink" aria-pressed="false">Ink</button>
+        </div>
+      </section>
     </section>
 
-    <section class="ld-sec" aria-labelledby="ld-in">
-      <h2 id="ld-in">What goes in</h2>
-      <ul class="ld-list">
-        <li><b>PDF</b><span>Page numbers and running heads come out, split paragraphs are joined, italics are kept.</span></li>
-        <li><b>Word and EPUB</b><span>Headings, italics and line breaks become Markdown.</span></li>
-        <li><b>Web pages</b><span>Or paste straight from Word or Google Docs.</span></li>
-        <li><b>Markdown and text</b><span>One file, or a whole series, ordered by file name.</span></li>
-      </ul>
-    </section>
-
-    <section class="ld-sec" aria-labelledby="ld-make">
-      <h2 id="ld-make">How it becomes a book</h2>
+    <section class="ld-how" aria-labelledby="ld-how-h">
+      <header>
+        <h2 id="ld-how-h">How a sentence becomes a picture</h2>
+        <p>No model is needed. Every picture is composed by rules you can read, so the same words always give the same drawing. A model on your own computer can paint over it if you want.</p>
+      </header>
       <ol class="ld-steps">
-        <li><b>Check the text</b><span>Everything becomes Markdown you can read and edit. Chapters, quotes and verse are found for you and listed, never changed silently.</span></li>
-        <li><b>Place the pictures</b><span>Small drawings sit where the story changes scene, each composed from what its passage describes: the place, the hour, the weather, who is there. Each caption is a phrase quoted exactly from your words. A model on your own computer can paint them if you like.</span></li>
-        <li><b>Choose a look</b><span>Eight editions to start from, nine type pairings, six palettes, each in light and dark.</span></li>
+        <li><i>01</i><b>It reads</b><span>Word lists find the place, the hour, the weather, the season, the things, who is there and what they do. A place named after “in” or “at” counts double. Anything the text says is absent does not count.</span></li>
+        <li><i>02</i><b>It carries</b><span>A chapter’s setting carries forward and fades, so “She walked on” still happens in the street at night the chapter set up. A place keeps its look, and a named person keeps their silhouette.</span></li>
+        <li><i>03</i><b>It acts</b><span>Verbs become motion. Smoke leaves the chimney that is in the picture, sparks rise from the flame, leaves fall in autumn, a flock crosses away from the light, and a star falls only in a night sky.</span></li>
       </ol>
     </section>
 
-    <section class="ld-sec" aria-labelledby="ld-out">
-      <h2 id="ld-out">What comes out</h2>
-      <ul class="ld-list">
-        <li><b>An HTML book</b><span>One file. It works offline and can go straight onto GitHub Pages.</span></li>
-        <li><b>An EPUB</b><span>For Apple Books, Kobo and other e-readers.</span></li>
-        <li><b>A printed page</b><span>Trim sizes, mirrored margins, page numbers. Save it as a PDF.</span></li>
-        <li><b>Markdown</b><span>The text itself, to keep or take elsewhere.</span></li>
-      </ul>
+    <section class="ld-io" aria-labelledby="ld-io-h">
+      <h2 id="ld-io-h" class="sr-only">What goes in and what comes out</h2>
+      <div>
+        <h3>In</h3>
+        <ul class="ld-list">
+          <li><b>PDF</b><span>Page numbers and running heads come out, split paragraphs are joined, italics are kept.</span></li>
+          <li><b>Word, EPUB</b><span>Headings, italics and line breaks become Markdown.</span></li>
+          <li><b>Web pages</b><span>Or paste straight from Word or Google Docs.</span></li>
+          <li><b>Markdown, text</b><span>One file, or a whole series ordered by file name.</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3>Out</h3>
+        <ul class="ld-list">
+          <li><b>HTML book</b><span>One file. It works offline and can go straight onto GitHub Pages.</span></li>
+          <li><b>EPUB</b><span>For Apple Books, Kobo and other e-readers.</span></li>
+          <li><b>Print</b><span>Trim sizes, mirrored margins, page numbers. Save it as a PDF.</span></li>
+          <li><b>Markdown</b><span>The text itself, to keep or take elsewhere.</span></li>
+        </ul>
+      </div>
     </section>
 
     <section class="ld-promise">
@@ -219,6 +237,7 @@
               <ol class="ch-list" id="mkChapters"></ol></section>
             <button class="pn-text" id="mkOpenText" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-1 10-10-3-3L6 15z"/></svg><span><b>Edit the text</b>Markdown, title page and typography</span><kbd>⌘J</kbd></button>
             <header class="pn-h pn-h2"><h2>Pictures</h2><span id="mkPicCount"></span></header>
+            <button class="pn-text" id="mkFindWords" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M4 10h7M4 14h10M4 18h6"/><circle cx="17.5" cy="14.5" r="3"/><path d="M20 17l2 2"/></svg><span><b>Picture any words</b>Select them in the book, or find them here</span></button>
             <div class="field"><span>How many pictures</span>
               <div class="seg" data-key="density"><button type="button" data-v="few">Few</button><button type="button" data-v="some">Some</button><button type="button" data-v="many">Many</button><button type="button" data-v="every">Every scene</button></div></div>
             <div class="field"><span>What they show</span>
@@ -252,6 +271,7 @@
         <div class="mk-stage" id="mkStage">
           <div class="mk-thumb" id="mkThumb" role="navigation" aria-label="Chapters and pictures"></div>
           <div class="mk-insp" id="mkInsp" role="dialog" aria-label="Picture" hidden></div>
+          <div class="mk-words" id="mkWords" role="dialog" aria-label="A picture of the selected words" hidden></div>
           <iframe id="mkFrame" title="Preview of your book"></iframe>
           <div class="mk-empty" id="mkEmpty">
             <svg aria-hidden="true"><use href="#i-lotus"/></svg>

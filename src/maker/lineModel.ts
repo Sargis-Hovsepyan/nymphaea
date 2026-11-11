@@ -26,7 +26,7 @@ const BANDS: { id: BandId; name: string; of: (s: Spec) => { key: string; label: 
 ];
 
 /** Runs of equal values over the blocks, sized in words. Blocks without a spec (headings, scene breaks) join the run before them. */
-export function bandSegs(blocks: Block[], specs: (Spec | null)[], starts: number[], wc: number[], of: (s: Spec) => { key: string; label: string }): Seg[] {
+export function bandSegs(specs: (Spec | null)[], starts: number[], wc: number[], of: (s: Spec) => { key: string; label: string }): Seg[] {
   const vals = specs.map((s) => (s ? of(s) : null));
   const first = vals.find((v) => v);
   if (!first) return [];
@@ -56,7 +56,7 @@ export function smoothMood(specs: (Spec | null)[], radius = 3): (Spec | null)[] 
 export function lineModel(blocks: Block[], scenes: SceneRef[], specs: (Spec | null)[], sugg: Suggestion[], density: Density, captionOf: (s: Suggestion) => string): LineModel {
   const { starts, wc, total } = offsets(blocks);
   const limit = Math.round(DENS[density] * 2.5);
-  const bands = BANDS.map((b) => ({ id: b.id, name: b.name, segs: bandSegs(blocks, b.id === "mood" ? smoothMood(specs) : specs, starts, wc, b.of) })).filter((b) => b.segs.length);
+  const bands = BANDS.map((b) => ({ id: b.id, name: b.name, segs: bandSegs(b.id === "mood" ? smoothMood(specs) : specs, starts, wc, b.of) })).filter((b) => b.segs.length);
   const stations: Station[] = chapterBlocks(blocks).map((i, n) => ({ block: i, start: starts[i], title: plain(blocks[i].text), num: n + 1 }));
   const end = (i: number) => starts[i] + wc[i];
   const stops: Stop[] = [

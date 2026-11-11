@@ -2,6 +2,7 @@
 // composed scenes side by side. Run `npx vite` and open /gallery.html. Add ?ids=gen:a,gen:b to pin.
 import { vscene, sceneLabel } from "./compose";
 import { blank, encode, PLACES, type Spec } from "./compose/spec";
+import { readSpec } from "./compose/read";
 import { makeVector, drawVector } from "./renderers/vector";
 import { drawModel, sceneModel } from "./vscenes/model";
 import type { Style } from "./types";
@@ -14,8 +15,28 @@ PLACES.forEach((place, i) => {
   if (i % 3 === 0) specs.push(blank(i * 31 + 5, { place, time: TIMES[(i + 2) % 4], who: 2, cast: [3, 20], pose: "pair", shot: "mid", props: ["lamp"] }));
   if (i % 4 === 1) specs.push(blank(i * 53 + 1, { place, time: "night", who: 1, cast: [8], shot: "close", props: ["cup", "letter", "candle"] }));
 });
-const pinned = new URLSearchParams(location.search).get("ids");
-const ids = pinned ? pinned.split(",") : specs.map(encode);
+// ?read: sentences read the way a book is, to judge the pictures against their words.
+const LINES = [
+  "She sat in the living room with a cup of tea while the clock ticked.",
+  "He read the letter at the kitchen table by candlelight.",
+  "We sat on the bench in the garden and watched the birds.",
+  "They kissed on the bridge over the river at dawn.",
+  "The boat drifted across the lake in the fog.",
+  "At midnight the city was silent and wet with rain.",
+  "The old man slept in his bed by the window.",
+  "She held the umbrella over her head in the street.",
+  "They walked along the beach at sunset.",
+  "The train pulled into the station in the snow.",
+  "She ran through the forest as the wind howled.",
+  "They sat by the campfire under the stars.",
+  "A lighthouse stood on the cliffs above the sea.",
+  "The snow fell softly on the cottage roof.",
+  "She held the candle up in the dark hall.",
+  "He rowed the boat across the lake at dusk.",
+];
+const q = new URLSearchParams(location.search);
+const pinned = q.get("ids");
+const ids = pinned ? pinned.split(",") : q.has("read") ? LINES.map((t) => encode(readSpec(t))) : specs.map(encode);
 const g = document.getElementById("g")!, sel = document.getElementById("st") as HTMLSelectElement, tr = document.getElementById("t") as HTMLInputElement;
 
 function render(): void {

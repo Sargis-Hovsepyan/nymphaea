@@ -18,6 +18,11 @@ export interface SceneRef {
   scene: string;
   /** A few words quoted exactly from the text near `after`. Never invented. */
   caption: string;
+  /**
+   * The words the picture is drawn from, copied exactly from the manuscript (paragraphs joined by a
+   * line break). They end in paragraph `after` or the few before it. Without it, the whole paragraph.
+   */
+  quote?: string;
   /** An AI picture for this place (id of an image kept beside the book), drawn in the chosen style. */
   img?: string;
   /** The prompt that image was (or will be) made from. Never shown in the book. */

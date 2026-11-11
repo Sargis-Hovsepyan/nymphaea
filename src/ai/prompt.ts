@@ -62,6 +62,7 @@ export function imageBrief(scene: string, text: string, style: Style, withText =
   const parts = [
     "Book illustration of " + subject,
     moodWords(spec),
+    ...(spec.fx && spec.fx.length ? ["caught in motion: " + list(spec.fx.map((x) => LABEL.fx[x]))] : []),
     STYLE_BRIEF[style] || STYLE_BRIEF.ink,
     FRAMING[spec.shot],
   ];

@@ -51,7 +51,7 @@ export function segment(blocks: Block[], win = 80): Segmentation {
   const cut = mean + sd / 2;
   // Strongest valleys first; keep one only if no kept boundary is within half a window of words.
   const cum: number[] = []; let c = 0; wc.forEach((w) => { c += w; cum.push(c); });
-  const order = dep.map((d, g) => g).filter((g) => dep[g] > cut && cum[g] >= win / 2 && total - cum[g] >= win / 2).sort((a, b) => dep[b] - dep[a] || a - b);
+  const order = dep.map((_, g) => g).filter((g) => dep[g] > cut && cum[g] >= win / 2 && total - cum[g] >= win / 2).sort((a, b) => dep[b] - dep[a] || a - b);
   const kept: number[] = [];
   order.forEach((g) => { if (kept.every((h) => Math.abs(cum[h] - cum[g]) >= win)) kept.push(g); });
   dep.forEach((d, g) => depth.set(idx[g], d));

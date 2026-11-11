@@ -45,7 +45,7 @@ describe("Guard", () => {
 
   it("accepts the hand-placed sample scenes unchanged", () => {
     const g = guardScenes(book.blocks, SEED_SCENES);
-    expect(g).toEqual({ scenes: SEED_SCENES, rejected: 0, recaptioned: 0 });
+    expect(g).toEqual({ scenes: SEED_SCENES, rejected: 0, recaptioned: 0, unquoted: 0 });
   });
 
   it("replaces an invented caption with a quoted one", () => {

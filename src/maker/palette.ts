@@ -9,7 +9,9 @@ import { state } from "../state";
 import type { Density, SceneRef, Style } from "../types";
 import { concreteness, evidence } from "../compose/read";
 import { STYLE_NAME, setOpt } from "./design";
-import { norm, placeHits, placePlan, placeRuns, rank, textHits, type Snip } from "./find";
+import { norm, passageHits, placeHits, placePlan, placeRuns, rank, textHits, type Snip } from "./find";
+import { locate } from "../stage/locate";
+import { showWords } from "./pick";
 import { showInBook } from "./goto";
 import { $, book, commitScenes, hasText, hooks, plural } from "./session";
 import { chapterBlocks, specsOf } from "./suggest";
@@ -18,7 +20,7 @@ import { checkpoint, undo, UNDO } from "./undo";
 import { closeOnBackdrop, openExport, setPane, toast } from "./ui";
 import { VIEWS, currentView, setView, type View } from "./views";
 
-interface Item { group: string; label: string; hint?: string; snip?: Snip; run: () => void; id: string }
+interface Item { group: string; label: string; hint?: string; snip?: Snip; run: () => void; id: string; /** Shift+Enter: a picture of these words. */ alt?: () => void }
 
 const VIEW_NAME: Record<View, string> = { book: "Book", board: "Storyboard", line: "Story line", compare: "Compare" };
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -55,7 +57,7 @@ export function addAtPlace(place: Place): number {
   return plan.length;
 }
 
-let items: Item[] = [], flat: Item[] = [], active = 0, input: HTMLInputElement, list: HTMLElement, live: HTMLElement, dlg: HTMLDialogElement, made = false;
+let items: Item[] = [], flat: Item[] = [], active = 0, input: HTMLInputElement, list: HTMLElement, live: HTMLElement, dlg: HTMLDialogElement, made = false, words = false;
 
 function search(q: string): Item[] {
   const B = book(), query = norm(q), out: Item[] = [];
@@ -65,12 +67,21 @@ function search(q: string): Item[] {
     const n = chapters.indexOf(h.i), title = plain(h.b.text);
     return { group: "Chapters", label: title, hint: n >= 0 ? "Chapter " + roman(n + 1) : "Section", run: () => showInBook(h.i), id: "c:" + h.i };
   });
+  if (!query && words) return out;
   if (!query) {
     out.push(...chItems.filter((c) => c.hint !== "Section").slice(0, 5));
     out.push(...items.slice(0, 8));
     return out;
   }
-  if (query.length >= 2) textHits(B.blocks, query, 6).forEach((h) => out.push({ group: "In the text", label: "", snip: h.snip, hint: "¶ " + (B.blocks.slice(0, h.block + 1).filter((b) => b.type !== "h").length) + (h.count > 1 ? " · " + h.count + "×" : ""), run: () => showInBook(h.block), id: "t:" + h.block }));
+  const para = (i: number) => "¶ " + B.blocks.slice(0, i + 1).filter((b) => b.type !== "h").length;
+  const picture = (h: import("../stage/locate").Hit) => () => { showInBook(h.endBlock); showWords(h); };
+  const long = passageHits(B.blocks, q, words ? 6 : 4);
+  if (long.length) long.forEach((h) => out.push({ group: words ? "Pick the passage" : "In the text", label: "", snip: h.snip, hint: para(h.block) + (h.hit.fuzzy ? " · close match" : "") + (words ? "" : " · ⇧↵ picture"), run: words ? picture(h.hit) : () => showInBook(h.block), alt: picture(h.hit), id: "t:" + h.block + ":" + h.hit.startOff }));
+  else if (query.length >= 2) textHits(B.blocks, query, 6).forEach((h) => {
+    const [hit] = locate(B.blocks, q, { from: h.block, to: h.block, limit: 1, fuzzy: false });
+    out.push({ group: words ? "Pick the passage" : "In the text", label: "", snip: h.snip, hint: para(h.block) + (h.count > 1 ? " · " + h.count + "×" : ""), run: words && hit ? picture(hit) : () => showInBook(h.block), alt: hit ? picture(hit) : undefined, id: "t:" + h.block });
+  });
+  if (words) return out;
   out.push(...rank(chItems, query, (c) => c.label, 5));
   const names = (p: Place) => p + " " + LABEL.place[p].replace(/^(a|an|the) /, "");
   placeHits(specsOf(B.blocks), query, names, 2).forEach((h) => {
@@ -89,7 +100,7 @@ function draw(): void {
   if (active >= flat.length) active = Math.max(0, flat.length - 1);
   list.textContent = "";
   if (!flat.length) {
-    const p = document.createElement("p"); p.className = "pl-none"; p.textContent = hasText() ? "Nothing matches “" + input.value.trim() + "”." : "Add some text to search it.";
+    const p = document.createElement("p"); p.className = "pl-none"; p.textContent = !hasText() ? "Add some text to search it." : words && !input.value.trim() ? "Paste or type any words from the book. A typo or a missing word is fine." : "Nothing matches “" + input.value.trim() + "”.";
     list.appendChild(p); input.removeAttribute("aria-activedescendant"); live.textContent = "No results"; return;
   }
   let group = "", box: HTMLElement | null = null;
@@ -132,32 +143,38 @@ function make(): void {
     + '<input id="mkPalIn" type="text" role="combobox" aria-expanded="true" aria-controls="mkPalList" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="Find words, places, actions" aria-label="Find words, places, actions"><kbd>Esc</kbd></div>'
     + '<div class="pl-list" id="mkPalList" role="listbox" aria-label="Results"></div><p class="sr-only" id="mkPalLive" role="status" aria-live="polite"></p>';
   input = $<HTMLInputElement>("mkPalIn"); list = $("mkPalList"); live = $("mkPalLive");
-  input.addEventListener("input", () => { active = 0; draw(); });
+  // Short queries answer at once; a pasted passage searches the whole book, so it waits for a pause.
+  let deb = 0;
+  input.addEventListener("input", () => { active = 0; clearTimeout(deb); if (norm(input.value).split(" ").length < 3) draw(); else deb = window.setTimeout(draw, 140); });
   input.addEventListener("keydown", (e) => {
     const n = flat.length;
     if (e.key === "ArrowDown") { e.preventDefault(); if (n) { active = (active + 1) % n; mark(); } }
     else if (e.key === "ArrowUp") { e.preventDefault(); if (n) { active = (active + n - 1) % n; mark(); } }
     else if (e.key === "Home" && !input.value) { e.preventDefault(); active = 0; mark(); }
     else if (e.key === "End" && !input.value) { e.preventDefault(); active = Math.max(0, n - 1); mark(); }
-    else if (e.key === "Enter") { e.preventDefault(); run(active); }
+    else if (e.key === "Enter") { e.preventDefault(); if (deb) { clearTimeout(deb); deb = 0; draw(); } if (e.shiftKey && flat[active]?.alt) { dlg.close(); flat[active].alt!(); } else run(active); }
   });
   list.addEventListener("mousemove", (e) => { const li = (e.target as HTMLElement).closest<HTMLElement>(".pl-item"); if (li && +(li.dataset.i || 0) !== active) { active = +(li.dataset.i || 0); mark(); } });
   list.addEventListener("click", (e) => { const li = (e.target as HTMLElement).closest<HTMLElement>(".pl-item"); if (li) run(+(li.dataset.i || 0)); });
   closeOnBackdrop(dlg);
 }
 
-export function openPalette(): void {
+/** `mode` "words": find a passage to picture (only the text is searched, Enter offers its picture). */
+export function openPalette(mode: "all" | "words" = "all"): void {
   if ($("mkWork").hidden) return;
   if (!made) make();
+  words = mode === "words";
   items = actions();
   input.value = ""; active = 0;
+  input.placeholder = words ? "Paste or type words from the book to picture" : "Find words, places, actions";
   if (!dlg.open) dlg.showModal();
   draw();
   input.focus();
 }
 
 export function initPalette(): void {
-  $("mkCmdBtn").addEventListener("click", openPalette);
+  $("mkCmdBtn").addEventListener("click", () => openPalette());
+  $("mkFindWords").addEventListener("click", () => openPalette("words"));
   document.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
       e.preventDefault();

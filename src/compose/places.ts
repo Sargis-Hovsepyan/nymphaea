@@ -126,7 +126,8 @@ export function backdrop(s: Spec, L: Layout, id: string, c: Ctx, rL: Rng): Backd
           // a hedgerow of small trees along the far edge
           let d = "";
           for (let x = -10; x < 330; x += 10 + rL() * 14) d += circle(x, hy - 3 - rL() * 4, 4 + rL() * 5) + " ";
-          back.push(layer("L1", path("far", d + rect(-10, hy - 4, 340, 6)), 0.8)); parallax("L1", 8);
+          // The band is wound like the circles (counter-clockwise), so where they overlap there is no hole.
+          back.push(layer("L1", path("far", d + P([[-10, hy + 2], [330, hy + 2], [330, hy - 4], [-10, hy - 4]])), 0.8)); parallax("L1", 8);
         }
       }
       grd.push(path("edge", rect(-5, hy + 1, 330, 210 - hy)));
@@ -134,7 +135,7 @@ export function backdrop(s: Spec, L: Layout, id: string, c: Ctx, rL: Rng): Backd
         const vx = 160 + (rL() - 0.5) * 200;
         let fu = "";
         for (let k = -8; k <= 8; k++) fu += "M" + f(vx + k * 6) + "," + f(hy + 3) + " L" + f(vx + k * 70) + ",204 ";
-        grd.push(layer("", path("line", fu), 0.35));
+        grd.push(layer("", path("line", fu), 0.2));
       }
       if (s.place === "garden") {
         const px0 = L.focusX;
@@ -213,16 +214,21 @@ export function backdrop(s: Spec, L: Layout, id: string, c: Ctx, rL: Rng): Backd
       back.push(path("beam", "M0,0", "ref", 'fill="url(#bm' + id + ')"'));
       const dim = s.sky !== "clear" && s.sky !== "wind";
       mv.push((a, t) => { const x = L.light.x + (t - 0.5) * 30; a.a("ref").setAttribute("d", dim || L.light.y > w0 ? "M0,0" : P([[x - 5, w0 + 1], [x + 5, w0 + 1], [x + 34, w1], [x - 34, w1]])); });
-      back.push(path("line", "M0,0", "wv"));
+      back.push(path("line", "M0,0", "wv", 'opacity=".6"'));
       const calm = s.place === "lake" ? 0.4 : 1, rows = Math.max(3, Math.round((w1 - w0) / 14));
       mv.push((a, _t, tm) => {
         let d = "";
         for (let row = 0; row < rows; row++) {
           const k = row / rows, y = w0 + 6 + (w1 - w0 - 8) * k * k, amp = (0.4 + k * 2.4) * calm * (0.6 + s.a + (s.sky === "storm" || s.sky === "wind" ? 1 : 0)), seg = 12 + k * 20;
           if (s.place === "river" || s.place === "lake") { for (let q = 0; q < 4; q++) { const x = ((q * 97 + row * 41 + tm * (8 + row * 3)) % 380) - 30; d += "M" + f(x) + "," + f(y) + " h" + f(10 + k * 16) + " "; } continue; }
-          d += "M-5," + f(y);
-          for (let x = seg - 5; x <= 330; x += seg) d += " L" + f(x) + "," + f(y + Math.sin(x * 0.05 + tm * (1 + row * 0.2) + row) * amp);
-          d += " ";
+          // Broken strokes, short and sparse far out, longer near: a full-width line reads as a stripe.
+          const n = 3 + Math.round(k * 3), len = 18 + k * 60;
+          for (let q = 0; q < n; q++) {
+            const x0 = ((q * 131 + row * 57 + tm * (3 + row * 1.5) * (row % 2 ? 1 : -1)) % 420 + 420) % 420 - 50;
+            d += "M" + f(x0) + "," + f(y + Math.sin(x0 * 0.05 + tm + row) * amp);
+            for (let x = x0 + seg; x <= x0 + len; x += seg) d += " L" + f(x) + "," + f(y + Math.sin(x * 0.05 + tm * (1 + row * 0.2) + row) * amp);
+            d += " ";
+          }
         }
         a.a("wv").setAttribute("d", d);
       });
@@ -297,15 +303,15 @@ function interior(s: Spec, L: Layout, id: string, c: Ctx, rL: Rng): Backdrop {
   back.push(path("edge", P([[-5, -5], [330, -5], [330, ceil], [-5, ceil]])));
   let beams = "";
   for (let k = 0; k < 7; k++) { const x = -40 + k * 66; beams += "M" + f(vx + (x - vx) * 0.25) + "," + f(ceil) + " L" + f(x) + ",-5 "; }
-  back.push(layer("", path("line", beams), 0.35));
+  back.push(layer("", path("line", beams), 0.08));
   back.push(path("bg2", rect(-5, ceil, 335, wall - ceil)));
-  back.push(path("line", "M-5," + f(wall) + " H330 M-5," + f(ceil) + " H330"));
+  back.push(layer("", path("line", "M-5," + f(wall) + " H330 M-5," + f(ceil) + " H330"), 0.5));
   const floorCls = s.place === "hall" || s.place === "church" ? "board" : "edge";
   grd.push(path(floorCls, rect(-5, wall, 335, 210 - wall)));
   let boards = "";
   for (let k = 0; k < 11; k++) { const x = -120 + k * 56; boards += "M" + f(vx + (x - vx) * 0.25) + "," + f(wall) + " L" + f(x) + ",205 "; }
   if (s.place === "hall") for (let k = 1; k < 5; k++) { const y = wall + (205 - wall) * (k * k) / 25; boards += "M-5," + f(y) + " H330 "; }
-  grd.push(layer("", path("line", boards), 0.4));
+  grd.push(layer("", path("line", boards), 0.1));
 
   // the main window, the light of the scene
   const ww = u * (s.place === "church" ? 0.7 : 1.05), wh = Math.min(u * (s.place === "church" ? 1.6 : 1.05), wall - u * 0.3 - ceil - 6), wx = L.light.x - ww / 2, wy = wall - u * 0.3 - wh;

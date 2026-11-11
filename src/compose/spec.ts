@@ -6,8 +6,10 @@
 // It travels inside a SceneRef as a compact id, so a composed picture is stored, guarded, exported
 // and rendered exactly like a library scene. Pure.
 //
-//   gen:<place>.<time>.<sky>.<props>.<who><pose>.<cast>.<shot><season>.<mood>.<seed>.<moment>
+//   gen:<place>.<time>.<sky>.<props>.<who><pose>.<cast>.<shot><season>.<mood>.<seed>.<moment>[.<motion>]
 //   e.g. gen:city.night.rain.lamp+car.1w.k.fx.13.k3f.a0
+//   The motion part (a bit mask in base 36, see FX) is written only when the text named a motion,
+//   so every id made before it existed is still the same id.
 //
 // The older seven part form (gen:<place>.<time>.<sky>.<props>.<who>[w].<mood>.<seed>) still decodes.
 
@@ -28,6 +30,11 @@ export const PROPS = [
   "bed", "chair", "shelf", "clock", "mirror", "stairs", "piano", "letter", "glass", "umbrella",
   "suitcase", "bicycle", "train", "ship", "fence", "gate", "well", "grave", "rock", "tent",
 ] as const;
+
+/** Motion the passage names, acted out on top of the scene: things falling, smoke rising, birds
+ *  taking off, light flickering, lights coming on, waves breaking, a shooting star, wind in things. */
+export const FX = ["fall", "rise", "fly", "flicker", "glow", "swell", "star", "sway"] as const;
+export type Fx = (typeof FX)[number];
 
 export type Place = (typeof PLACES)[number];
 export type Time = (typeof TIMES)[number];
@@ -59,6 +66,8 @@ export interface Spec {
   seed: number;
   /** The moment inside that place (0–1295): clouds, figures, small things. "Shuffle" changes it. */
   moment: number;
+  /** What moves, read from the verbs and nouns of the passage. Optional: older specs have none. */
+  fx?: Fx[];
 }
 
 export const MAX_PROPS = 4;
@@ -73,13 +82,8 @@ export const isWater = (p: Place): boolean => WATERS.includes(p);
 export const SMALL: readonly Prop[] = ["cup", "book", "candle", "letter", "glass"];
 /** Things that only belong outside. */
 export const OUTDOOR_ONLY: readonly Prop[] = ["tree", "house", "boat", "car", "tower", "horse", "bridge", "train", "ship", "fence", "gate", "well", "grave", "rock", "tent", "bicycle", "bird"];
-/** Things that only belong inside. */
-export const INDOOR_ONLY: readonly Prop[] = ["bed", "shelf", "mirror", "piano", "window", "stairs"];
 /** Things that float. */
 export const ON_WATER: readonly Prop[] = ["boat", "ship"];
-
-/** Kept for the older code paths and the Studio: the indoor-only things. */
-export const INDOOR: readonly Prop[] = ["table", "cup", "book", "candle", "window"];
 
 const POSE_CH: Record<Pose, string> = { stand: "", walk: "w", run: "r", sit: "i", lie: "l", reach: "h", look: "u", pair: "p" };
 const CH_POSE: Record<string, Pose> = Object.fromEntries(Object.entries(POSE_CH).map(([k, v]) => [v, k as Pose]));
@@ -101,8 +105,15 @@ export function encode(s: Spec): string {
     s.place, s.time, s.sky, props, String(who) + (who ? POSE_CH[s.pose] || "" : ""), cast,
     SHOT_CH[s.shot] + SEASON_CH[s.season], mood,
     (Math.abs(s.seed | 0) % 46656).toString(36), (Math.abs(s.moment | 0) % 1296).toString(36),
+    ...(fxMask(s.fx) ? [fxMask(s.fx).toString(36)] : []),
   ].join(".");
 }
+
+/** The motion list as a bit mask (0 when there is none). */
+export function fxMask(fx: readonly Fx[] | undefined): number {
+  return (fx || []).reduce((m, x) => { const i = FX.indexOf(x); return i < 0 ? m : m | (1 << i); }, 0);
+}
+const fxOf = (m: number): Fx[] => FX.filter((_, i) => m & (1 << i));
 
 const isOf = <T extends string>(list: readonly T[], v: string): v is T => (list as readonly string[]).includes(v);
 
@@ -110,7 +121,13 @@ const isOf = <T extends string>(list: readonly T[], v: string): v is T => (list 
 export function decode(id: unknown): Spec | null {
   if (typeof id !== "string" || !id.startsWith(GEN) || id.length > 140) return null;
   const p = id.slice(GEN.length).split(".");
-  if (p.length !== 7 && p.length !== 10) return null;
+  if (p.length !== 7 && p.length !== 10 && p.length !== 11) return null;
+  let fx: Fx[] | undefined;
+  if (p.length === 11) {
+    const m = /^[0-9a-z]{1,2}$/.test(p[10]) ? parseInt(p[10], 36) : NaN;
+    if (!(m > 0 && m < 1 << FX.length)) return null;
+    fx = fxOf(m); p.length = 10;
+  }
   const old = p.length === 7;
   const [place, time, sky, props, who] = p;
   const castS = old ? "-" : p[5], frame = old ? "fx" : p[6], mood = old ? p[5] : p[7], seed = old ? p[6] : p[8], moment = old ? p[6] : p[9];
@@ -127,6 +144,7 @@ export function decode(id: unknown): Spec | null {
     place, time, sky, season: CH_SEASON[fm[2]], props: Array.from(new Set(pr)) as Prop[],
     who: n, pose: n ? CH_POSE[wm[2]] || "stand" : "stand", cast, shot: CH_SHOT[fm[1]],
     v: dq(+mm[1], -1, 1, 5), a: dq(+mm[2], 0, 1, 3), seed: parseInt(seed, 36), moment: parseInt(moment, 36) % 1296,
+    ...(fx ? { fx } : {}),
   };
 }
 
@@ -158,10 +176,12 @@ export function fromLoose(o: unknown, seed = 0): Spec | null {
   const num = (v: unknown, d: number) => (typeof v === "number" && Number.isFinite(v) ? v : d);
   const sd = Math.abs(num(r.seed, seed) | 0);
   const ps: Pose = isOf(POSES, pose) ? pose : r.walk === true ? "walk" : "stand";
+  const fx = Array.from(new Set((Array.isArray(r.motion ?? r.fx) ? (r.motion ?? r.fx) as unknown[] : []).map(str).filter((x): x is Fx => isOf(FX, x))));
   return withWho({
     place, time: isOf(TIMES, time) ? time : "day", sky: isOf(SKIES, sky) ? sky : "clear", season: isOf(SEASONS, season) ? season : "none",
     props: Array.from(new Set(props)).slice(0, MAX_PROPS), who, pose: ps, cast: [], shot: isOf(SHOTS, shot) ? shot : "wide",
     v: Math.max(-1, Math.min(1, num(r.v, 0))), a: Math.max(0, Math.min(1, num(r.a, 0.5))), seed: sd % 46656, moment: sd % 1296,
+    ...(fx.length ? { fx } : {}),
   }, who);
 }
 
@@ -185,6 +205,10 @@ const PROP_WORDS: Record<Prop, string> = {
   letter: "a letter", glass: "a glass", umbrella: "an umbrella", suitcase: "a suitcase", bicycle: "a bicycle", train: "a train",
   ship: "a ship", fence: "a fence", gate: "a gate", well: "a well", grave: "a grave", rock: "rocks", tent: "a tent",
 };
+const FX_WORDS: Record<Fx, string> = {
+  fall: "things falling", rise: "smoke rising", fly: "birds taking flight", flicker: "flickering light", glow: "lights glowing",
+  swell: "waves breaking", star: "a shooting star", sway: "everything moving in the wind",
+};
 const WHO_WORDS = ["", "a figure", "two figures", "a few figures"];
 
 export function list(xs: string[]): string {
@@ -199,7 +223,8 @@ export function describe(s: Spec): string {
   const things = list([...s.props.map((p) => PROP_WORDS[p]), who]);
   const lead = s.shot === "close" && s.props.length ? SHOT_WORDS.close + PROP_WORDS[s.props[0]] + " in " : SHOT_WORDS[s.shot];
   const rest = s.shot === "close" && s.props.length ? list([...s.props.slice(1).map((p) => PROP_WORDS[p]), who]) : things;
-  return lead + [PLACE_WORDS[s.place], TIME_WORDS[s.time], SKY_WORDS[s.sky], SEASON_WORDS[s.season]].filter(Boolean).join(" ") + (rest ? ", with " + rest : "");
+  const motion = (s.fx || []).map((x) => x === "fall" ? (s.season === "autumn" ? "leaves falling" : s.season === "spring" ? "petals falling" : FX_WORDS.fall) : FX_WORDS[x]);
+  return lead + [PLACE_WORDS[s.place], TIME_WORDS[s.time], SKY_WORDS[s.sky], SEASON_WORDS[s.season]].filter(Boolean).join(" ") + (rest ? ", with " + rest : "") + (motion.length ? "; " + list(motion) : "");
 }
 
-export const LABEL = { place: PLACE_WORDS, time: TIME_WORDS, sky: SKY_WORDS, prop: PROP_WORDS, season: SEASON_WORDS, pose: POSE_WORDS, shot: SHOT_WORDS };
+export const LABEL = { fx: FX_WORDS, place: PLACE_WORDS, time: TIME_WORDS, sky: SKY_WORDS, prop: PROP_WORDS, season: SEASON_WORDS, pose: POSE_WORDS, shot: SHOT_WORDS };

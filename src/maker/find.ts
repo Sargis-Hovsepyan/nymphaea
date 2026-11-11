@@ -3,6 +3,7 @@
 import type { Place, Spec } from "../compose/spec";
 import { isBreak, plain } from "../inline";
 import type { Block } from "../types";
+import { locate, shown, type Hit } from "../stage/locate";
 
 export const norm = (q: string): string => q.trim().replace(/\s+/g, " ").toLowerCase();
 
@@ -42,6 +43,26 @@ export function textHits(blocks: Block[], q: string, limit = 6): TextHit[] {
     out.push({ block: i, snip: s, count: low.split(query).length - 1 });
   }
   return out;
+}
+
+export interface PassageHit { block: number; snip: Snip; hit: Hit }
+
+/**
+ * Passages for a longer query (three words or more), found the way a selection is: through curly
+ * quotes, Markdown marks, line breaks between paragraphs and a typo or a missing word. The snippet
+ * shows the manuscript's own words.
+ */
+export function passageHits(blocks: Block[], q: string, limit = 5): PassageHit[] {
+  if (norm(q).split(" ").length < 3) return [];
+  return locate(blocks, q, { limit }).map((h) => {
+    const a = blocks[h.startBlock].text, z = blocks[h.endBlock].text;
+    let before = shown(a.slice(Math.max(0, h.startOff - 46), h.startOff)), after = shown(z.slice(h.endOff, h.endOff + 46));
+    if (h.startOff > 46) before = "…" + before.replace(/^\S*\s/, "");
+    if (h.endOff + 46 < z.length) after = after.replace(/\s\S*$/, "") + "…";
+    let match = shown(h.exact);
+    if (match.length > 140) match = match.slice(0, 70).trimEnd() + " … " + match.slice(-60).trimStart();
+    return { block: h.startBlock, snip: { before: before ? before + " " : "", match, after: after ? " " + after : "" }, hit: h };
+  });
 }
 
 /** How well `q` matches `label`: -1 none, higher is better. Every word of the query must match,

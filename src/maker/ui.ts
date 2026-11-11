@@ -67,12 +67,8 @@ export function setPane(pane: Pane, tab?: Tab): void {
     b.setAttribute("aria-pressed", String(on));
   });
   document.querySelectorAll<HTMLElement>("#mkSideSw button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.side === (pane === "design" ? "design" : "manuscript"))));
-  onPane(pane, t);
 }
 
-let onPane: (pane: Pane, tab: Tab) => void = () => {};
-/** Be told when the pane or tab changes (to remember it). */
-export function watchPane(fn: (pane: Pane, tab: Tab) => void): void { onPane = fn; }
 
 /** Close a modal sheet on a backdrop click: the click lands on the dialog itself, outside its box.
  *  (Keyboard "clicks" on buttons inside target the button, so they never close it.) */

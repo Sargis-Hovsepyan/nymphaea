@@ -2,9 +2,10 @@
 // full editor, one at a time. Moving, adding, removing and choosing the cover all go through the
 // Guard, so a caption can never stop being a quote of the author's words.
 import { decode, encode, blank, withWho, LABEL, PLACES, POSES, PROPS, SEASONS, SHOTS, SKIES, TIMES, describe, type Spec } from "../compose/spec";
-import { trackSpecs } from "../compose/read";
+import { inReach, readQuoteAt, trackSpecs } from "../compose/read";
+import { shown, type Hit } from "../stage/locate";
 import { NUM } from "../settings";
-import { autoStage, captionFor } from "../stage/auto";
+import { autoStage, captionFor, captionOf } from "../stage/auto";
 import { captionIsQuoted } from "../stage/guard";
 import { SCENE_DESC, SCENE_LIST } from "../stage/keywords";
 import { state } from "../state";
@@ -18,9 +19,9 @@ import { checkpoint, UNDO } from "./undo";
 import { setPane, toast } from "./ui";
 import { stageWithAi } from "./staging";
 import { noteRemoved, renderRemoved } from "./removed";
+import { cap, clip } from "../text/strings";
 
 const COMPOSE = "__compose";
-const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 /** Which card is open (by its place in the book), and which one the reading point is on. */
 let openKey = "", hereK = -1;
@@ -29,10 +30,47 @@ export function pNumber(after: number): number {
   let n = 0; book().blocks.forEach((b, i) => { if (i <= after && b.type !== "h") n++; }); return n;
 }
 
-/** The composed scene for a paragraph, read with its chapter's setting carried in. */
-export function composeFor(i: number): string {
-  try { const sp = trackSpecs(book().blocks)[i]; if (sp) return encode(sp); } catch { /* fall through to a plain scene */ }
+/**
+ * The composed scene for a paragraph, read with its chapter's setting carried in. With `quote`, the
+ * picture is read from those words first, then the rest of their paragraph, then the chapter.
+ */
+export function composeFor(i: number, quote?: string): string {
+  try {
+    if (quote) { const r = readQuoteAt(book().blocks, i, quote); if (r) return encode(r.spec); }
+    const sp = trackSpecs(book().blocks)[i]; if (sp) return encode(sp);
+  } catch { /* fall through to a plain scene */ }
   return encode(blank(i));
+}
+
+/** Add a picture after paragraph `after`, drawn from the chosen words, and open its card. */
+export function addPictureFrom(after: number, quote: string): void {
+  const B = book();
+  if (!B.blocks[after] || B.blocks[after].type === "h") return;
+  checkpoint();
+  const scene = composeFor(after, quote);
+  const ref: SceneRef = { after, scene, caption: captionOf(quote, scene), quote };
+  openKey = pkey(ref);
+  commitScenes([...B.scenes, ref]);
+  const k = book().scenes.findIndex((x) => pkey(x) === openKey);
+  toast("Added a picture of “" + clip(shown(quote), 40) + "” after paragraph " + pNumber(after) + ".", false, UNDO);
+  if (!narrow()) { setPane("manuscript", "pictures"); openCard(k); }
+  sess.preview.send({ type: "scroll", block: after, picture: true });
+}
+
+/** Draw picture k again from the words in `h`. The picture moves to just after them when they are beyond its reach. */
+export function redrawFrom(k: number, h: Hit): void {
+  const B = book(), s = B.scenes[k];
+  if (!s) return;
+  checkpoint();
+  if (!inReach(h.startBlock, h.endBlock, s.after)) s.after = h.endBlock;
+  const old = s.scene, quote = h.exact;
+  s.scene = composeFor(s.after, quote); s.quote = quote; s.caption = captionOf(quote, s.scene);
+  if (B.cover === old) B.cover = s.scene;
+  const had = !!s.img;
+  delete s.img; delete s.prompt;
+  openKey = pkey(s);
+  commitScenes(B.scenes);
+  toast("Picture " + (NUM[k] || k + 1) + " is now drawn from “" + clip(shown(quote), 40) + "”." + (had ? " The painting was for the old words, so the drawing shows now." : ""), false, UNDO);
 }
 
 /* ---------------- the composed scene's controls ---------------- */
@@ -122,6 +160,16 @@ function cardBody(s: SceneRef, k: number): HTMLElement {
   const msg = document.createElement("p"); msg.className = "cap-msg"; msg.id = "cap-msg-" + k; msg.hidden = true;
   capIn.setAttribute("aria-describedby", msg.id);
   body.append(sel, capIn, msg);
+  const q = document.createElement("div"); q.className = "card-q";
+  if (s.quote) {
+    const bq = document.createElement("blockquote"); bq.textContent = clip(shown(s.quote), 220);
+    const lbl = document.createElement("span"); lbl.textContent = "Drawn from these words";
+    q.append(lbl, bq, btn("Choose other words", "q-pick", "btn quiet", "Select other words in the book for this picture"));
+  } else {
+    const lbl = document.createElement("span"); lbl.textContent = "Drawn from the whole paragraph";
+    q.append(lbl, btn("Choose the words", "q-pick", "btn quiet", "Select the words in the book this picture should show"));
+  }
+  body.appendChild(q);
   const sp = decode(s.scene);
   if (sp) body.appendChild(genEditor(sp));
   const pr = paintRow(s, k);
@@ -263,7 +311,7 @@ export function initScenes(): void {
     if (f === "scene") {
       checkpoint();
       const v = (t as HTMLSelectElement).value, old = s.scene;
-      s.scene = v === COMPOSE ? composeFor(s.after) : v;
+      s.scene = v === COMPOSE ? composeFor(s.after, s.quote) : v;
       if (B.cover === old) B.cover = s.scene;
       openKey = pkey(s);
       delete s.img; delete s.prompt;
@@ -301,6 +349,7 @@ export function initScenes(): void {
       const a = GEN_ACTIONS.find((g) => g.id === b.dataset.genAct);
       if (a) editSpec(k, a.run);
     }
+    else if (f === "q-pick") hooks.armWords(k);
     else if (f === "p-make") paint(s).catch(() => {});
     else if (f === "p-drop") { checkpoint(); delete s.img; commitScenes(B.scenes); toast("Back to the drawn scene. The painting is kept until it is no longer needed.", false, UNDO); }
   });

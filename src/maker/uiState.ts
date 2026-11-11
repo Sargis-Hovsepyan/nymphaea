@@ -1,19 +1,14 @@
-// What the Studio remembers about its own layout between visits: the tab, the device size and which
+// What the Studio remembers about its own layout between visits: the device size and which
 // sections are open. Studio-only, in localStorage; the book and the look are saved elsewhere.
 import { load, store } from "../store";
 import { $ } from "./session";
-import type { Tab } from "./ui";
 
 const KEY = "nymphaea-studio-ui";
 type Device = "desk" | "tablet" | "phone";
-interface Ui { tab?: Tab; device?: Device; open?: Record<string, boolean> }
+interface Ui { device?: Device; open?: Record<string, boolean> }
 
 function read(): Ui { const u = load<Ui>(KEY); return u && typeof u === "object" ? u : {}; }
 function patch(p: Partial<Ui>): void { store(KEY, { ...read(), ...p }); }
-
-/** The Book panel (chapters and pictures) unless the author left the Text open last time. */
-export const savedTab = (): Tab => (read().tab === "text" ? "text" : "pictures");
-export const rememberTab = (tab: Tab): void => { if (read().tab !== tab) patch({ tab }); };
 
 export function setDevice(d: Device): void {
   $("mkStage").classList.toggle("phone", d === "phone");

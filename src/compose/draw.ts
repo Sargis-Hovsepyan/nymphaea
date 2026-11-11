@@ -9,11 +9,17 @@
 // a group classed t-<hour> w-<sky>, which the styles use to tint it by the hour.
 //
 // Layers, back to front: sky, stars, sun or moon, clouds, far land, near land, things and people
-// (far first, each with its shadow), framing foreground, weather, grain.
-import { clamp, ease, lerp } from "../scenes/helpers";
+// (far first, each with its shadow), framing foreground, weather, motion, grain.
+//
+// Motion (spec.fx, read from the passage's verbs) is acted out from where things really stand:
+// smoke leaves the chimney, the fire or the cup that is in the picture, sparks rise from the flame,
+// leaves or petals or ash fall by the season and what is burning, a flock crosses the sky away from
+// the light, waves roll in across the water band, a star falls only in a night sky. The beat (t)
+// brings each one in, so a picture settles into its motion as the reader reaches it.
+import { ease, lerp } from "../scenes/helpers";
 import { P, circle, defs, ellipse, f, grain, pool, rect, seg } from "../vscenes/shapes";
-import type { VApi, VScene } from "../vscenes";
-import { GROUND_SIT_DROP, figureSvg, poseFrame } from "./figure";
+import type { VScene } from "../vscenes";
+import { GROUND_SIT_DROP, HAND, figureSvg, holdAngle, poseFrame } from "./figure";
 import { SIZE, effectiveShot, layout, type Item } from "./layout";
 import { fbm, rng, smooth, type Rng } from "./noise";
 import { backdrop } from "./places";
@@ -23,14 +29,17 @@ import type { Spec } from "./spec";
 interface Plan { markup: (id: string) => string; movers: Mover[] }
 
 function cloudShape(r: Rng, cx: number, cy: number, w: number): string {
-  let d = rect(cx - w / 2, cy - 2, w, 5) + " ";
+  // The base is an ellipse, wound like the puffs: a rectangle winds the other way and cuts holes where they overlap.
+  let d = ellipse(cx, cy + 0.5, w / 2, 3.2) + " ";
   const n = 3 + Math.floor(r() * 3);
   for (let k = 0; k < n; k++) { const x = cx - w / 2 + (w * (k + 0.5)) / n, rr = w * (0.12 + r() * 0.12) * (k === Math.floor(n / 2) ? 1.4 : 1); d += circle(x, cy - rr * 0.35, rr) + " "; }
   return d;
 }
 
 function plan(spec: Spec): Plan {
-  const s: Spec = { ...spec, shot: effectiveShot(spec) };
+  // "The branches swayed" under a clear sky: the wind is drawn, as it would be for a windy sky.
+  const fxs = spec.fx || [];
+  const s: Spec = { ...spec, shot: effectiveShot(spec), sky: fxs.includes("sway") && spec.sky === "clear" ? "wind" : spec.sky, a: fxs.includes("sway") ? Math.max(spec.a, 0.8) : spec.a };
   const L = layout(s);
   const rL = rng(s.seed + 101), rM = rng(s.moment * 31 + s.seed + 5);
   const night = s.time === "night", low = s.time === "dawn" || s.time === "dusk";
@@ -99,14 +108,21 @@ function plan(spec: Spec): Plan {
 
   /* things and people, far first */
   const placed = L.items;
-  let fi = 0;
   placed.forEach((it, n) => {
     if (it.kind === "fig") {
       const k = "fg" + it.i, b = s.cast[it.i] ?? 0, pose = it.pose || "stand";
       const ph = it.i * 1.3 + rM() * 2, seatOnGround = pose === "sit" && !it.seat;
-      const svg = figureSvg(k, b, pose, it.face, !!it.seat);
+      // What the figure holds, drawn in its hand at its real size, kept upright as the arm lifts it.
+      let held = "";
+      if (it.hold) {
+        const p = it.hold, z = SIZE[p], sc = p === "letter" || p === "book" ? 14 / z.w : z.real * 100 / z.h;
+        const hb = thing(p, 90 + n, "§", { ...c, r: rng(s.seed * 17 + n) });
+        mv.push(...hb.movers);
+        held = group(hb.svg, "", "translate(" + HAND.x + "," + HAND.y + ") rotate(" + f(-holdAngle(p)) + ") scale(" + f(sc) + ") translate(0," + (p === "umbrella" ? 14 : 1) + ")");
+      }
+      const svg = figureSvg(k, b, pose, it.face, !!it.seat, held);
       const big = it.s > 1.6;
-      add((big ? "" : group(shadow(26, L.light.x - it.x, 60), "", "translate(" + f(it.x) + "," + f(it.y) + ") scale(" + f(it.s) + ")")) + svg);
+      add((id) => idFix((big ? "" : group(shadow(26, L.light.x - it.x, 60), "", "translate(" + f(it.x) + "," + f(it.y) + ") scale(" + f(it.s) + ")")) + svg, id));
       const lie = pose === "lie";
       const walking = pose === "walk" || pose === "run";
       const road = walking && s.place === "road";
@@ -116,9 +132,8 @@ function plan(spec: Spec): Plan {
         else if (walking) x = Math.max(-10, Math.min(330, it.x + it.face * lerp(-34, 10, e) * it.s * (pose === "run" ? 1.6 : 1)));
         else if (!lie) x += Math.sin(tm * 0.5 + ph) * 0.3;
         tf(a, k, "translate(" + f(x) + "," + f(y) + ") scale(" + f(sc) + ")" + (lie ? " translate(0,-11) rotate(" + (it.face > 0 ? -90 : 90) + ")" : ""));
-        poseFrame(a, k, pose, b, walking ? t : Math.max(t, 0.5), tm, ph, 1);
+        poseFrame(a, k, pose, b, walking ? t : Math.max(t, 0.5), tm, ph, 1, it.hold || "");
       });
-      fi++;
       return;
     }
     const seed = s.seed * 31 + n * 7 + it.i;
@@ -143,7 +158,6 @@ function plan(spec: Spec): Plan {
     add((id) => group(idFix(sh, id) + idFix(built.svg, id), "", "translate(" + f(it.x) + "," + f(it.y) + ") scale(" + f(it.s) + ")" + flip));
     mv.push(...built.movers);
   });
-  void fi;
 
   /* foreground framing, then weather */
   add((id) => idFix(bd.front, id));
@@ -189,15 +203,169 @@ function plan(spec: Spec): Plan {
     mv.push((a, _t, tm) => { let d = ""; for (let i = 0; i < 6; i++) { const x = ((i * 71 + tm * (60 + s.a * 60)) % 420) - 60, y = 20 + (i * 37) % Math.max(20, hy - 10); d += "M" + f(x) + "," + f(y) + " q14,-5 28,0 t28,0 "; } a.a("wd").setAttribute("d", d); });
   }
 
-  /* light: the hour and the mood set how far the scene brightens with the beat */
+  /* motion read from the text */
+  const fl = motion(s, L, box, add, mv, rM);
+
+  /* light: the hour and the mood set how far the scene brightens with the beat; a flicker shakes it */
   const top = night ? 0.85 : low ? 0.95 : 1, bottom = night ? 0.15 : 0.32 + 0.15 * s.v;
-  mv.push((a, t) => a.light(lerp(bottom, top, ease(seg(t, 0, 0.8)))));
+  const nz = fbm(s.moment + 17, 2);
+  mv.push((a, t, tm) => a.light(lerp(bottom, top, ease(seg(t, 0, 0.8))) * (fl ? 0.86 + 0.14 * nz(tm * 7) : 1)));
 
   const cls = "hz t-" + s.time;
   return {
     markup: (id) => defs(id) + group(skyDefs(id) + group(parts.map((p) => p(id)).join(""), "", "", 'class="w-' + s.sky + (s.season !== "none" ? " se-" + s.season : "") + '"'), "", "", 'class="' + cls + '"') + grain(id),
     movers: mv,
   };
+}
+
+type Box = { x: number; y: number; w: number; h: number };
+type Add = (fn: string | ((id: string) => string)) => void;
+
+/** Where smoke, steam or sparks come from: the things in the picture that burn or steam. */
+function sources(L: ReturnType<typeof layout>, kinds: readonly string[]): { x: number; y: number; s: number; kind: string }[] {
+  const top: Record<string, [number, number]> = { fire: [0, -18], candle: [0, -25], cup: [0, -12], house: [13, -50], tent: [0, -36], lamp: [0, -62] };
+  return L.items.filter((it) => kinds.includes(it.kind) && it.on !== "ceiling").slice(0, 3).map((it) => {
+    const [dx, dy] = top[it.kind] || [0, -it.h / Math.max(0.01, it.s)];
+    return { x: it.x + dx * it.s * (it.face < 0 ? -1 : 1), y: it.y + dy * it.s, s: it.s, kind: it.kind };
+  });
+}
+
+/** The passage's motion, as layers and movers. Returns whether the light should flicker. */
+function motion(s: Spec, L: ReturnType<typeof layout>, box: Box, add: Add, mv: Mover[], r: Rng): boolean {
+  const fx = s.fx || [];
+  if (!fx.length) return false;
+  const indoor = L.indoor, hy = L.cam.hy, night = s.time === "night", low = s.time === "dawn" || s.time === "dusk";
+  const k = (t: number) => lerp(0.35, 1, ease(seg(t, 0, 0.7)));
+  const ph = r() * 10;
+
+  if (fx.includes("rise")) {
+    let src = sources(L, ["fire", "candle", "cup", "house", "tent"]);
+    if (!src.length) src = indoor ? [{ x: L.focusX, y: L.cam.shot === "close" ? L.surface : L.wall + 6, s: 1, kind: "air" }]
+      : [{ x: 300 - L.light.x * 0.6, y: hy + 3, s: 0.6, kind: "far" }, { x: 330 - L.light.x * 0.9, y: hy + 2, s: 0.45, kind: "far" }];
+    const lean = (L.light.x < 160 ? 1 : -1) * (s.sky === "wind" || s.sky === "storm" ? 2.6 : 0.7);
+    src.forEach((p, i) => {
+      for (let j = 0; j < 3; j++) add(path("line", "M0,0", "rs" + i + j, 'fill="none"'));
+      const tall = (p.kind === "cup" || p.kind === "candle" ? 26 : p.kind === "air" ? 60 : 70) * Math.max(0.5, Math.min(2.2, p.s));
+      mv.push((a, t, tm) => {
+        for (let j = 0; j < 3; j++) {
+          const q = ((tm * 0.18 + j / 3 + i * 0.27) % 1), y0 = p.y - q * tall * 0.5, len = tall * (0.3 + 0.4 * q);
+          const pts: [number, number][] = [];
+          for (let n = 0; n <= 5; n++) { const u = n / 5, y = y0 - u * len; pts.push([p.x + Math.sin(tm * 1.4 + n * 0.9 + j * 2 + ph) * (1 + u * 4 + q * 4) + lean * (q + u) * 6, y]); }
+          const el = a.a("rs" + i + j);
+          el.setAttribute("d", smooth(pts));
+          (el as SVGElement).style.opacity = f(Math.sin(Math.PI * q) * 0.75 * k(t));
+        }
+      });
+    });
+  }
+
+  if (fx.includes("flicker")) {
+    const src = sources(L, ["fire", "candle", "lamp"]).filter((p) => p.kind !== "lamp" || !indoor);
+    if (src.length) {
+      add(path("lit", "M0,0", "spk"));
+      mv.push((a, t, tm) => {
+        let d = "";
+        src.forEach((p, i) => {
+          const n = p.kind === "fire" ? 9 : 3, rise = (p.kind === "fire" ? 46 : 16) * Math.max(0.6, p.s);
+          for (let j = 0; j < n * k(t); j++) {
+            const q = (tm * (0.45 + (j % 3) * 0.12) + j / n + i * 0.3) % 1;
+            d += circle(p.x + Math.sin(tm * 3 + j * 1.7) * (2 + q * 7) * p.s, p.y - q * rise, (1 - q) * (p.kind === "fire" ? 1.3 : 0.7)) + " ";
+          }
+        });
+        a.a("spk").setAttribute("d", d || "M0,0");
+      });
+    }
+  }
+
+  if (fx.includes("fall")) {
+    const tree = L.items.some((it) => it.kind === "tree");
+    const kind = s.season === "autumn" || (tree && s.season !== "spring" && s.season !== "winter") ? "leaf"
+      : s.season === "spring" || s.props.includes("flower") ? "petal" : s.props.includes("fire") ? "ash" : indoor ? "dust" : "leaf";
+    const role = kind === "leaf" ? "key" : "lit";
+    add(path(role, "M0,0", "fal", kind === "ash" || kind === "dust" ? 'opacity=".7"' : ""));
+    const n = Math.round((kind === "dust" ? 22 : 16) + s.a * 14), B = indoor ? box : { x: -5, y: -5, w: 330, h: 210 };
+    const speed = kind === "dust" ? 4 : kind === "ash" ? 9 : kind === "petal" ? 13 : 18;
+    mv.push((a, t, tm) => {
+      let d = "";
+      const m = Math.round(n * k(t));
+      for (let i = 0; i < m; i++) {
+        const sp = speed * (0.7 + ((i * 37) % 10) / 16), y = B.y + (((i * 41.3 + tm * sp) % B.h) + B.h) % B.h;
+        const x = B.x + ((((i * 67.9 + Math.sin(tm * 0.9 + i) * (kind === "dust" ? 4 : 10) + tm * (s.sky === "wind" ? 16 : 3)) % B.w) + B.w) % B.w);
+        if (kind === "leaf") { const r2 = Math.sin(tm * 2.2 + i) * 2.4; d += "M" + f(x) + "," + f(y) + " q" + f(r2) + ",-2.4 4.4,0 q" + f(-r2) + ",2.4 -4.4,0 "; }
+        else if (kind === "petal") d += ellipse(x, y, 1.6 + Math.abs(Math.sin(tm * 2 + i)) * 0.9, 1) + " ";
+        else d += circle(x, y, kind === "dust" ? 0.55 : 0.8) + " ";
+      }
+      a.a("fal").setAttribute("d", d || "M0,0");
+    });
+  }
+
+  if (fx.includes("fly")) {
+    const B = indoor ? box : { x: 0, y: 6, w: 320, h: Math.max(30, hy - 24) };
+    const n = 5 + Math.floor(r() * 4), dir = L.light.x < 160 ? 1 : -1, y0 = B.y + B.h * (0.25 + r() * 0.35), sc = indoor ? 0.5 : 1;
+    add(path("line", "M0,0", "fly", 'fill="none"'));
+    mv.push((a, t, tm) => {
+      const span = B.w + 140, lead = ((tm * 16 * (0.8 + s.a * 0.6) + ph * 20) % span) - 70;
+      let d = "";
+      for (let i = 0; i < n; i++) {
+        const row = Math.ceil(i / 2), side = i % 2 ? 1 : -1;
+        const x = B.x + (dir > 0 ? lead - row * 9 * sc : B.w - lead + row * 9 * sc), y = y0 + side * row * 5 * sc + Math.sin(tm * 0.8 + i) * 2 - (1 - k(t)) * 10;
+        const fl = Math.sin(tm * 9 + i * 1.3) * 2.6 * sc, w = 5 * sc;
+        d += "M" + f(x - w) + "," + f(y - fl) + " Q" + f(x - w * 0.4) + "," + f(y - 1) + " " + f(x) + "," + f(y) + " Q" + f(x + w * 0.4) + "," + f(y - 1) + " " + f(x + w) + "," + f(y - fl) + " ";
+      }
+      a.a("fly").setAttribute("d", d);
+    });
+  }
+
+  if (fx.includes("glow")) {
+    if (indoor) {
+      add((id) => pool(id, Math.round(L.light.x), Math.round(L.wall - 10), 110, "gw"));
+      mv.push((a, t, tm) => op(a, "gw", (0.35 + 0.25 * Math.sin(tm * 1.3)) * k(t)));
+    } else {
+      const pts: [number, number, number][] = [];
+      const lit = night || low;
+      for (let i = 0; i < 26; i++) pts.push([10 + r() * 300, hy + 1 + r() * (lit ? 10 : 4), r()]);
+      const bugs = lit && ["garden", "field", "forest", "hill", "lake", "river", "graveyard", "village"].includes(s.place);
+      add(path("lit", "M0,0", "glw"));
+      mv.push((a, t, tm) => {
+        let d = "";
+        if (lit) pts.forEach(([x, y, q], i) => { if (Math.sin(tm * (0.6 + q) + i * 2.1) > 0.2 - k(t)) d += rect(x, y, 1.6, 1.6) + " "; });
+        else pts.slice(0, 8).forEach(([x, y, q], i) => { const g = Math.sin(tm * 1.8 + i * 1.7 + q * 6); if (g > 0.75) { const r2 = (g - 0.75) * 10; d += P([[x - r2, y], [x, y - 0.6], [x + r2, y], [x, y + 0.6]]) + " " + P([[x, y - r2], [x + 0.6, y], [x, y + r2], [x - 0.6, y]]) + " "; } });
+        if (bugs) for (let i = 0; i < 12 * k(t); i++) { const x = 20 + ((i * 53 + Math.sin(tm * 0.4 + i) * 24) % 290), y = hy + (200 - hy) * (0.3 + ((i * 29) % 60) / 100) + Math.sin(tm * 0.9 + i * 3) * 6; if (Math.sin(tm * 1.6 + i * 2.3) > 0) d += circle(x, y, 1.1) + " "; }
+        a.a("glw").setAttribute("d", d || "M0,0");
+      });
+    }
+  }
+
+  if (fx.includes("swell") && L.water) {
+    // Crests roll in from the horizon: thin and faint far out, fuller and brighter near, spray as they break.
+    const [w0, w1] = L.water, n = 4;
+    for (let j = 0; j < n; j++) add(path("lit", "M0,0", "swl" + j));
+    mv.push((a, t, tm) => {
+      const amp = 0.5 + s.a * 0.9 + (s.sky === "storm" ? 1 : 0);
+      for (let j = 0; j < n; j++) {
+        const q = ((j / n + tm * 0.07) % 1), y = w0 + (w1 - w0) * Math.pow(q, 1.5), h = 0.3 + q * 1.8 * amp, up: [number, number][] = [], dn: [number, number][] = [];
+        for (let x = -10; x <= 330; x += 30) { const yy = y + Math.sin(x * 0.03 + j * 2 + tm * 0.6) * q * 3 * amp; up.push([x, yy]); dn.unshift([x, yy + h]); }
+        let d = smooth(up) + " L" + smooth(dn).slice(1) + " Z ";
+        if (q > 0.82) for (let i = 0; i < 8; i++) d += circle(((i * 41 + j * 13) % 320), y - (q - 0.82) * 40 * (0.4 + (i % 3) * 0.3), 0.8) + " ";
+        a.a("swl" + j).setAttribute("d", d);
+        op(a, "swl" + j, Math.pow(q, 1.3) * Math.min(1, (1 - q) * 6) * 0.7 * k(t));
+      }
+    });
+  }
+
+  if (fx.includes("star") && night && !indoor) {
+    const x0 = L.light.x < 160 ? 210 + r() * 60 : 50 + r() * 60, y0 = 10 + r() * 20, dx = (L.light.x < 160 ? -1 : 1) * 90, dy = Math.min(50, hy * 0.5);
+    add(path("lit", "M0,0", "sht"));
+    mv.push((a, _t, tm) => {
+      const c = (tm * 0.14 + ph) % 1, el = a.a("sht");
+      if (c > 0.14) { el.setAttribute("d", "M0,0"); return; }
+      const p = c / 0.14, hx = x0 + dx * p, hy2 = y0 + dy * p, tx = x0 + dx * Math.max(0, p - 0.35), ty = y0 + dy * Math.max(0, p - 0.35);
+      const nx = -(hy2 - ty), ny = hx - tx, l = Math.hypot(nx, ny) || 1, w = 1.1 / l;
+      el.setAttribute("d", P([[tx, ty], [hx + nx * w, hy2 + ny * w], [hx - nx * w, hy2 - ny * w]]) + " " + circle(hx, hy2, 1.3));
+      (el as SVGElement).style.opacity = f(Math.sin(Math.PI * p));
+    });
+  }
+  return fx.includes("flicker");
 }
 
 /** The sky's gradient: its two stops are coloured by the style's CSS for the hour. */

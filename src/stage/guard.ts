@@ -5,6 +5,7 @@ import type { Block, SceneRef } from "../types";
 import { captionFor } from "./auto";
 import { normalize } from "../compose/spec";
 import { isScene } from "./keywords";
+import { locate } from "./locate";
 
 /** How many paragraphs back from its picture a caption may quote (same window autoStage uses). */
 export const CAPTION_WINDOW = 6;
@@ -45,10 +46,29 @@ export interface GuardResult {
   rejected: number;
   /** Caption was not an exact quote, so it was replaced with one taken from the paragraph. */
   recaptioned: number;
+  /** A picture's chosen words were no longer in the text near it, so it went back to its paragraph. */
+  unquoted: number;
+}
+
+/** Longest quote a picture may be drawn from. */
+export const QUOTE_MAX = 1200;
+
+/**
+ * A picture's chosen words, checked against the text: the manuscript's own characters when they are
+ * still there (ending at `after` or the few paragraphs before), found again when the author has
+ * mended a word in them, else null.
+ */
+export function quoteFor(quote: string, blocks: Block[], after: number): string | null {
+  const q = quote.slice(0, QUOTE_MAX).trim();
+  if (!q) return null;
+  const from = Math.max(0, after - CAPTION_WINDOW);
+  const [h] = locate(blocks, q, { from, to: after, limit: 1 });
+  if (!h || (h.fuzzy && h.score < 0.8)) return null;
+  return h.exact;
 }
 
 export function guardScenes(blocks: Block[], scenes: unknown[]): GuardResult {
-  let rejected = 0, recaptioned = 0;
+  let rejected = 0, recaptioned = 0, unquoted = 0;
   const out: SceneRef[] = [];
   scenes.forEach((raw) => {
     const s = raw as Partial<SceneRef> | null;
@@ -58,12 +78,16 @@ export function guardScenes(blocks: Block[], scenes: unknown[]): GuardResult {
     if (!captionIsQuoted(caption, blocks, after)) { caption = captionFor(blocks[after].text, s.scene); recaptioned++; }
     const scene = s.scene.startsWith("gen:") ? normalize(s.scene)! : s.scene;
     const ref: SceneRef = { after, scene, caption };
+    if (typeof s.quote === "string" && s.quote.trim()) {
+      const q = quoteFor(s.quote, blocks, after);
+      if (q) ref.quote = q; else unquoted++;
+    }
     if (typeof s.img === "string" && IMG_ID.test(s.img)) ref.img = s.img;
     if (typeof s.prompt === "string" && s.prompt.trim()) ref.prompt = s.prompt.slice(0, 1200);
     out.push(ref);
   });
   out.sort((a, b) => a.after - b.after);
-  return { scenes: out, rejected, recaptioned };
+  return { scenes: out, rejected, recaptioned, unquoted };
 }
 
 export function guardBeats(blocks: Block[], beats: unknown): number[] {
