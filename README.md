@@ -44,11 +44,11 @@ The name comes from the water lily *Nymphaea*. The sacred blue lotus of Egypt gr
    - **Print or PDF:** a typeset page with mirrored margins, folios, and chapters on new pages.
    - **Markdown:** the text itself.
 
-The Studio opens on the **Book panel**: the chapters, each with a dot per picture, and the pictures. The Markdown stays closed until you open it with **Edit the text** (⌘J/Ctrl+J). The rail on the left switches between Book and Text, opens the AI models, and hides the panel to give the book more room.
+The Studio opens on the **Pictures panel**: the chapters, each with a dot per picture, and the pictures. Importing a file or opening a book from the shelf lands there too. The Markdown stays closed until you open it with **Edit the text** (⌘J/Ctrl+J). The rail on the left switches between Pictures and Text, opens the AI models, and hides the panel to give the book more room.
 
 The centre has four views:
-- **Book:** the live book. A thumb index down its fore edge has one tab per chapter, as tall as the chapter is long, and a mark for every picture. Hover a mark to read its caption, click it to go there. Clicking a picture opens an inspector that marks, in the book, the words the picture was read from, with quick Shot, Vary and Shuffle controls.
-- **Storyboard:** every picture by chapter, with dashed frames for strong passages that have no picture yet. One click adds one.
+- **Book:** the live book. A thumb index down its fore edge has one tab per chapter, as tall as the chapter is long, and a mark for every picture. Hover a mark to read its caption, click it to go there. Clicking a picture opens an inspector with the same editor as its card (see below), and marks in the book the words the picture was read from.
+- **Storyboard:** every picture by chapter, with what happens in it and a **Play** button, and dashed frames for strong moments that have no picture yet. One click adds one.
 - **Story line:** the hour, place, weather, season and mood across the whole text, with the chapters as stations, the pictures as stops, and long stretches without a picture marked.
 - **Compare:** the current look beside another edition or palette, both live. **Use this look** applies it, and Undo takes it back.
 
@@ -56,11 +56,18 @@ The centre has four views:
 
 The Studio itself is jet black, space gray and forest green, dark by default, with a light mode on the colours button.
 
-The middle pane is the real book, live, at desktop, tablet or phone width. Select any words in it, a phrase or a few sentences across paragraphs, and a bar shows the picture those words make, what was read from them and where each part came from. **Add this picture** puts it after the paragraph the words end in, and **Redraw picture N instead** gives a nearby picture these words. **Picture any words** in the Pictures tab does the same from a find box: paste or type words from the book, even with a typo, a missing comma or straight quotes for curly ones, and it finds the exact passage. Click a paragraph to see the choices for it: **Add a picture after this paragraph**, or jump the editor to it. Click a picture to open its card, and as you scroll the book the card of the picture you are reading is marked. The sun and moon button at the top switches the Studio between auto, light and dark. In the workspace (not while typing in a field), Ctrl/⌘+S downloads the book, Ctrl/⌘+E opens the export sheet and Ctrl/⌘+Z undoes. The tab you were on, the device size and which sections are open come back after a reload.
+The middle pane is the real book, live, at desktop, tablet or phone width. Select any words in it, a phrase or a few sentences across paragraphs, and a bar shows the picture those words make, what was read from them and where each part came from. **Add this picture** puts it after the paragraph the words end in, and **Redraw picture N instead** gives a nearby picture these words. **Picture any words** in the Pictures tab does the same from a find box: paste or type words from the book, even with a typo, a missing comma or straight quotes for curly ones, and it finds the exact passage. Click a paragraph to see the choices for it: **Add a picture after this paragraph**, or jump the editor to it. Click a picture to open its card, and as you scroll the book the card of the picture you are reading is marked. The sun and moon button at the top switches the Studio between auto, light and dark. In the workspace (not while typing in a field), Ctrl/⌘+S downloads the book, Ctrl/⌘+E opens the export sheet and Ctrl/⌘+Z undoes. The device size and which sections are open come back after a reload. On phones the bottom bar reads Pictures, Text, Book and Design.
 
 ### Pictures tab
 
-Each picture is a small card with its thumbnail, caption and paragraph number. Click one (or press Enter) to open its editor. One card is open at a time. In the editor you can change the scene, edit the caption, adjust a composed scene, **Move** the picture up or down one paragraph, **Use as cover**, show it in the book, or remove it. Moving a picture keeps its caption if it still quotes the text there, and takes a new quote from the paragraph if not. A picture drawn from chosen words shows them on its card, with **Choose other words** to pick again in the book. The generator row of a composed scene is built from a list of field descriptors (`GEN_FIELDS` in `src/maker/pictures.ts`), so a new control is one entry.
+Each picture is a small card with its thumbnail (showing the telling moment of what happens), caption, what happens in it and paragraph number. Click one (or press Enter) to open its editor. One card is open at a time. The editor, the same in the card and in the inspector, shows:
+- the picture playing, with **play**, **pause** and **play again**, a timeline with each act as a segment you can jump to or scrub, and a button for the **large view** (one picture big, with the pictures before and after it on the arrow keys);
+- **What happens**: each act as a chip you can take out, and a switch to turn acting off or read it from the words again;
+- **Direct it**: type "make her run", "add rain", "at dawn", "closer", "no dog" or "she opens the door, then leaves". It is read the same way as the book, shows what it understood, and changes nothing until you press **Apply**. Your direction changes only the picture, never the book's words;
+- the settings, each with its name: hour, weather and shot as rows of choices, place, season, figures, the pose at rest and the thing in focus, and the motion as chips;
+- **New view** (a new layout of the place) and **New moment** (the same layout, clouds, people and small things moved).
+
+Below it you can change the scene, edit the caption, **Move** the picture up or down one paragraph, **Use as cover**, show it in the book, or remove it. Moving a picture keeps its caption if it still quotes the text there, and takes a new quote from the paragraph if not. A picture drawn from chosen words shows them on its card, with **Choose other words** to pick again in the book; a banner stays until you have chosen them, and Cancel or Escape stops it.
 
 ### Bookshelf
 
@@ -101,11 +108,23 @@ The reading knows two-word names ("living room", "street lamp", "fire escape"), 
 
 The passage's verbs become motion. Smoke rises from the chimney, fire or cup that is actually in the picture, sparks rise from a flame, leaves or petals or ash fall by the season and what is burning, a flock crosses the sky away from the light, lights come on or fireflies drift at dusk, waves roll in across the water, and a shooting star falls, but only in a night sky outdoors. "The branches swayed" puts wind into the trees even under a clear sky. Each motion is kept only where the scene can show it, and it settles in as the reader reaches the picture. A place named right after "in", "at" or "into" counts double, and when two things are named equally often, the first one named is the focus of a close shot.
 
+### What happens
+
+A sentence is also read for what happens in it, clause by clause: who does what to what, toward where, how, and in what order. "She opened the door and stepped into the rain" is the figure opening the door, then leaving through it. "The train pulled into the station", "the candle went out", "the sun rose", "the rain stopped and the sun came out", "he gave her the letter", "they embraced as the train left" are each acted out. There is no parser and no language model: a clause is cut at sentence ends, "and", "then", "as", "while"; its verb is the first word whose lemma is in a table of about 550 verbs, with a subject just before it; the object is the first person or thing after the verb. "He" and "she" go to the person they fit, a name is a person even when it appears once, and "her" two words back makes "she" that person.
+
+Some clauses are not acted: negated ("did not open"), wished or modal ("would open", "wanted to"), conditional, inside dialogue, a simile or a memory, and idioms ("fell in love", "gave up"). A state stays a pose: "she sat on the bench" is how she is, "she sat down" is something she does.
+
+The acts are a closed vocabulary that can be drawn well: 36 for a figure (walk, run, enter, leave, cross, turn, sit down, get up, lie down, kneel, fall, jump, bow, touch, open, close, light, put out, knock, take, give, put down, drop, throw, raise, wave, point, look, drink, read, work, speak, nod, shake the head, weep, laugh), 4 for two together (embrace, kiss, dance, greet), 9 for a thing (open, close, arrive, leave, pass, light, go out, fall, ring) and 13 for the sky (sunrise, sunset, moonrise, nightfall, daybreak, stars, rain, snow, fog, wind, storm, cloud, lightning), each starting or stopping. They ride in the picture's id, four characters each, so an exported book carries them; older ids open as before.
+
+The picture plays them in order, each starting a little before the last one ends ("as" and "while" start together), on its own clock. Figures have knees, elbows and a turning head; a hand reaches the real point on a thing (the door handle, the wick) and a figure that will act on something stands within reach of it. A thing taken goes into the hand, a letter passes from one hand to the other, a figure in a boat sails with it. In the book a picture plays when it comes into view, holds, then plays again; a tap plays it from the start. Only the three pictures nearest the middle of the screen move at once. A still (a thumbnail, the EPUB, print, reduced motion, pictures set to Still) shows the telling moment, so "the bird flew away" is a bird leaving, not an empty sky. A sentence with acts and no place is played on a bare stage.
+
+Rules read grammar by order, so some things stay out of reach: a pronoun is sometimes bound to the wrong person, only the 40 drawn things can act ("the telephone rang" draws no telephone), a verb outside the tables is not acted, and a figure of speech with a person as its subject ("she ran the company") is. **Direct it** corrects any picture by hand, and a connected text model can return acts in the same closed words. `tests/acts.golden.test.ts` scores the reading on a tuned set, a held-out set and a set where nothing should happen.
+
+### Places, things and people
+
 There are 23 places (seven interiors, among them a kitchen, a study, a café and a church, and sixteen outdoor ones from a station to a harbour), 40 things, and figures that stand, walk, run, sit, lie, reach, look up or hold each other. A name that recurs in the book keeps the same silhouette. Words after "no" or "without" do not count, so "there was no moon" is not a moonlit scene. When a passage names nothing visible, the picture is a quiet pattern drawn from its mood instead of an invented room.
 
-In the Pictures tab each composed picture can be changed by place, hour, sky, season, figures, what they are doing, shot and the thing in focus. **Vary** gives a new layout of the place. **Shuffle** keeps the layout and changes the moment.
-
-To look at every place and shot side by side while working on the engine, run `npm run dev` and open `/gallery.html`. That page is not part of the build.
+To look at every place and shot side by side while working on the engine, run `npm run dev` and open `/gallery.html` (`?read` for sentences read as a book is, `?act` for sentences that act something out, with a play clock to scrub and a play button). That page is not part of the build.
 
 ## Change the code
 
@@ -132,14 +151,14 @@ CI (`.github/workflows/ci.yml`) runs on every push and pull request with Node 22
 
 - `index.html`: the app (built; open this one).
 - `src/`: the source. `src/index.html` is the page and `src/main.ts` the entry point, which picks one of three modes: the Studio, an exported book, or the Studio's preview frame.
-  - `maker/`: the Studio. `index.ts` wires the parts. `session.ts` holds the shared state. `draft.ts` and `shelf.ts` (with `shelfStore.ts`, `shelfData.ts`) save the book and keep the bookshelf. `undo.ts`, `pictures.ts` (cards), `pictureMove.ts`, `paint.ts`, `staging.ts`, `gc.ts`, `importer.ts`, `textPane.ts`, `design.ts`, `exportSheet.ts`, `pick.ts`, `shortcuts.ts`, `uiState.ts`, plus `editor.ts`, `preview.ts`, `landing.ts`, `ai.ts` (the AI models sheet) and `maker.css`.
+  - `maker/`: the Studio. `index.ts` wires the parts. `session.ts` holds the shared state. `draft.ts` and `shelf.ts` (with `shelfStore.ts`, `shelfData.ts`) save the book and keep the bookshelf. `undo.ts`, `pictures.ts` (cards), `pictureEdit.ts` (the picture editor), `large.ts` (the large view), `pictureMove.ts`, `paint.ts`, `staging.ts`, `gc.ts`, `importer.ts`, `textPane.ts`, `design.ts`, `exportSheet.ts`, `pick.ts`, `shortcuts.ts`, `uiState.ts`, plus `editor.ts`, `preview.ts`, `landing.ts`, `ai.ts` (the AI models sheet) and `maker.css`.
   - `import/`: PDF, Word, EPUB and HTML to Markdown.
   - `stage/`: picture placement, the AI staging prompt and the caption guard.
-  - `compose/`: composed scenes. `read.ts` reads a scene out of any passage, `layout.ts` places everything with a camera, `places.ts` draws the setting, `things.ts` the 40 things, `figure.ts` the people, `draw.ts` puts it together, `noise.ts` holds the seeded noise and curves, `spec.ts` is the compact `gen:` id (older ids still open).
+  - `compose/`: composed scenes. `read.ts` reads a scene out of any passage, `layout.ts` places everything with a camera, `places.ts` draws the setting, `things.ts` the 40 things, `figure.ts` the people and their joints, `draw.ts` puts it together, `clauses.ts` and `verbs.ts` read who does what, `acts.ts` is the act vocabulary and its id part, `timeline.ts` when each act plays, `perform.ts` how figures and things play them, `direct.ts` reads a direction in plain words, `noise.ts` holds the seeded noise and curves, `spec.ts` is the compact `gen:` id (older ids still open).
   - `ai/`: optional models. Settings, text and image adapters, rule-written image prompts and the image store.
   - `design/`: themes, type pairings, editions and the Studio palette.
   - `layout/`, `ui/`: paged spreads, print, and the reader.
-  - `vscenes/`, `scenes/`, `renderers/`: the pictures and their styles.
+  - `vscenes/`, `scenes/`, `renderers/`: the pictures and their styles. `renderers/player.ts` plays one picture (play, pause, replay, scrub) wherever the Studio shows one.
   - `export.ts`, `epub/`: the HTML and EPUB books.
 - `tests/`: the guarantees, starting with "every paragraph survives".
 - `episodes/`: the story, one Markdown file per episode.

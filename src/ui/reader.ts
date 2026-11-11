@@ -393,8 +393,12 @@ function frame(now: number): void {
     if (now - lastPics < 40) more = true;
     else {
       lastPics = now;
+      // Only the three pictures nearest the middle of the window keep moving; the rest hold their frame.
+      const vh = window.innerHeight || 800, seen = items.filter((it) => it.vis && !(it.photo && !it.src));
+      const near = new Set(seen.length <= 3 ? seen : seen.map((it) => { const r = it.node.getBoundingClientRect(); return { it, d: Math.abs(r.top + r.height / 2 - vh / 2) }; }).sort((a, b) => a.d - b.d).slice(0, 3).map((x) => x.it));
       items.forEach((it) => {
         if (!it.vis) return;
+        if (!near.has(it) && !(it.photo && !it.src) && Math.abs(target(it) - it.t) < 0.002) return;
         const tg = target(it), eased = Math.abs(tg - it.t) >= 0.002;
         // Well into view: what happens in it begins.
         if (it.born == null && it.t >= 0.45) it.born = now;

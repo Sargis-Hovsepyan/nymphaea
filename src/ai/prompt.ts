@@ -1,6 +1,7 @@
 // Image prompts written by rules, not by a model: the scene spec read from the passage (place, hour,
 // sky, things, figures, mood) plus the chosen picture style, so any image model gets a precise,
 // consistent brief. The author can edit the prompt per picture before it is sent. Pure.
+import { describeActs } from "../compose/acts";
 import { readSpec } from "../compose/read";
 import { LABEL, decode, list, type Spec } from "../compose/spec";
 import { plain } from "../inline";
@@ -63,6 +64,8 @@ export function imageBrief(scene: string, text: string, style: Style, withText =
     "Book illustration of " + subject,
     moodWords(spec),
     ...(spec.fx && spec.fx.length ? ["caught in motion: " + list(spec.fx.map((x) => LABEL.fx[x]))] : []),
+    // A still picture shows the telling moment of what happens.
+    ...(spec.acts && spec.acts.length ? ["what happens: " + describeActs(spec) + "; show the moment it turns on"] : []),
     STYLE_BRIEF[style] || STYLE_BRIEF.ink,
     FRAMING[spec.shot],
   ];

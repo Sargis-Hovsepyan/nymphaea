@@ -2,6 +2,7 @@
 // and JSON contract are pure functions, so every model gets the same brief and every reply goes
 // through the Guard. A model may pick a drawn library scene or describe a composed one.
 import { encode, fromLoose, FX, PLACES, POSES, PROPS, SEASONS, SHOTS, SKIES, TIMES } from "../compose/spec";
+import { FIG_KINDS, PAIR_KINDS, SKY_KINDS, THING_KINDS } from "../compose/acts";
 import { hash } from "./mood";
 import { DENS } from "../settings";
 import type { Book, Density, SceneRef } from "../types";
@@ -27,6 +28,10 @@ export function buildStagingPrompt(book: Book, density: Density): { prompt: stri
     + "- Pick the scene that best fits the moment; avoid the same scene twice in a row unless the story clearly returns to it.\n"
     + "- When no listed scene fits, compose one instead of \"scene\": give \"compose\": {\"place\", \"time\", \"weather\", \"season\", \"props\", \"figures\", \"pose\", \"shot\", \"motion\"} using only these words:"
     + " place " + PLACES.join("|") + "; time " + TIMES.join("|") + "; weather " + SKIES.join("|") + "; season " + SEASONS.join("|") + "; props (up to 4, the first is the focus of a close shot) " + PROPS.join("|") + "; figures 0-3; pose " + POSES.join("|") + "; shot " + SHOTS.join("|") + "; motion (up to 3, only what the passage says moves) " + FX.join("|") + ". Vary the shot when two pictures in a row share a place.\n"
+    + "- A composed scene may also say what happens, in order, as \"acts\" (up to 6, only what the words say happens now): each {\"who\", \"do\", \"to\", \"how\", \"with\", \"away\"}."
+    + " who: a figure number (0, 1, 2), \"all\", \"pair\" (figures 0 and 1 together), a prop from the scene's props, or \"sky\"."
+    + " do for a figure: " + FIG_KINDS.join("|") + "; for the pair: " + PAIR_KINDS.join("|") + "; for a prop: " + THING_KINDS.join("|") + "; for the sky: " + SKY_KINDS.join("|") + "."
+    + " to (optional): a figure number, a prop from the scene's props, \"up\", \"down\", \"off\". how: \"slow\" or \"sudden\". with: true when it starts together with the act before. away: true for away from \"to\", or for weather that stops.\n"
     + "- \"caption\" is 2 to 7 words quoted exactly from that paragraph.\n"
     + "- \"quote\" (optional) is the one or two sentences, quoted exactly from that paragraph or the one before, that the picture shows. Pick the moment, not the whole paragraph.\n"
     + "- \"beats\" lists the numbers of short paragraphs that are dramatic one-line beats and should stand alone on the page.\n"

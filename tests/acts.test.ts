@@ -126,3 +126,14 @@ describe("every act draws cleanly", () => {
     expect(problems).toEqual([]);
   });
 });
+
+describe("acts from an AI reply", () => {
+  it("are read from the closed words and pruned like any other", async () => {
+    const { fromLoose } = await import("../src/compose/spec");
+    const s = fromLoose({ place: "room", props: ["door", "candle"], figures: 1, acts: [{ who: 0, do: "open", to: "door" }, { who: "candle", do: "die", with: true }, { who: 0, do: "fly" }, { who: "sky", do: "rain", away: true }] })!;
+    expect(s.acts!.map((a) => [a.by, a.kind, a.to, a.with, a.away])).toEqual([[0, "open", 4, false, false], [6, "die", 0, true, false], [9, "rain", 0, false, true]]);
+    expect(decode(encode(s))!.acts).toEqual(s.acts);
+    const two = fromLoose({ place: "garden", acts: [{ who: "pair", do: "hug" }] })!;
+    expect(two.who).toBe(2);
+  });
+});

@@ -521,7 +521,7 @@ export function specFrom(text: string, ctx: Context, e: Evidence = evidence(text
   const stature: 0 | 1 | 2 = e.child > 0 ? 1 : e.elder > 0 ? 2 : 0;
   // Builds follow the figures the acts number (a named person keeps their silhouette), else the names in order.
   const nameAt = (i: number): string | undefined => {
-    if (bound && bound.acts.length) { const r = e.refs[bound.order[i]]; return r ? r.name : undefined; }
+    if (bound && bound.acts.length && bound.order.length) { const r = e.refs[bound.order[i]]; return r ? r.name ?? (bound.order.length === 1 && i === 0 ? names[0] : undefined) : names[i]; }
     return names[i];
   };
   const builds = Array.from({ length: who }, (_, i) => { const n = nameAt(i); return n ? cast.get(n) ?? hash(n) % 36 : buildFor((h >>> (i * 5)) % 997, i === 0 ? stature : 0); });
@@ -604,7 +604,7 @@ export function trackSpecs(blocks: Block[]): (Spec | null)[] {
 export type Source = "words" | "paragraph" | "chapter";
 export interface QuoteReading {
   spec: Spec;
-  from: Partial<Record<"place" | "time" | "sky" | "season" | "props" | "people" | "pose" | "motion", Source>>;
+  from: Partial<Record<"place" | "time" | "sky" | "season" | "props" | "people" | "pose" | "motion" | "act", Source>>;
   /** The words of the quote and of the paragraph that named each kind. */
   named: { words: Named; paragraph: Named };
 }
@@ -641,6 +641,8 @@ export function readQuote(blocks: Block[], h: Hit): QuoteReading {
   const P = hasWho ? eW : eP;
   const e: Evidence = {
     ...eW,
+    // What happens comes from the words when they say anything happens, else from the paragraph.
+    acts: eW.acts.length ? eW.acts : eP.acts, refs: eW.acts.length ? eW.refs : eP.refs,
     place: W("place"), time: W("time"), props: W("props"), fx: W("fx"), first: (own("props") ? eW : eP).first,
     pose: hasWho || any(eW.pose) ? eW.pose : eP.pose,
     one: P.one, two: P.two, many: P.many, child: P.child, elder: P.elder,
@@ -665,6 +667,7 @@ export function readQuote(blocks: Block[], h: Hit): QuoteReading {
   if (spec.who) from.people = by(hasWho);
   if (spec.who && spec.pose !== "stand") from.pose = by(hasWho || any(eW.pose));
   if (spec.fx && spec.fx.length) from.motion = by(own("fx"));
+  if (spec.acts && spec.acts.length) from.act = by(eW.acts.length > 0);
   return { spec, from, named: { words: namedWords(quote), paragraph: namedWords(rest) } };
 }
 

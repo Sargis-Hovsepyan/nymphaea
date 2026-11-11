@@ -197,12 +197,30 @@ export function fromLoose(o: unknown, seed = 0): Spec | null {
   const sd = Math.abs(num(r.seed, seed) | 0);
   const ps: Pose = isOf(POSES, pose) ? pose : r.walk === true ? "walk" : "stand";
   const fx = Array.from(new Set((Array.isArray(r.motion ?? r.fx) ? (r.motion ?? r.fx) as unknown[] : []).map(str).filter((x): x is Fx => isOf(FX, x))));
+  const propList = Array.from(new Set(props)).slice(0, MAX_PROPS);
+  const acts = looseActs(r.acts, propList);
   return withWho({
     place, time: isOf(TIMES, time) ? time : "day", sky: isOf(SKIES, sky) ? sky : "clear", season: isOf(SEASONS, season) ? season : "none",
     props: Array.from(new Set(props)).slice(0, MAX_PROPS), who, pose: ps, cast: [], shot: isOf(SHOTS, shot) ? shot : "wide",
     v: Math.max(-1, Math.min(1, num(r.v, 0))), a: Math.max(0, Math.min(1, num(r.a, 0.5))), seed: sd % 46656, moment: sd % 1296,
-    ...(fx.length ? { fx } : {}),
-  }, who);
+    ...(fx.length ? { fx } : {}), ...(acts.length ? { acts } : {}),
+  }, Math.max(who, ...acts.filter((a) => a.by <= 2).map((a) => a.by + 1), acts.some((a) => a.by === 4) ? 2 : 0));
+}
+
+/** Acts from loose data: {who, do, to, how, with, away}. Unknown words drop the act, never throw. */
+function looseActs(v: unknown, props: Prop[]): Act[] {
+  if (!Array.isArray(v)) return [];
+  const out: Act[] = [];
+  for (const x of v.slice(0, 6)) {
+    if (!x || typeof x !== "object") continue;
+    const o = x as Record<string, unknown>, s = (k: string) => (typeof o[k] === "string" ? (o[k] as string).toLowerCase().trim() : typeof o[k] === "number" ? String(o[k]) : "");
+    const w = s("who"), d = s("do"), t = s("to");
+    const by = /^[0-2]$/.test(w) ? +w : w === "all" ? 3 : w === "pair" ? 4 : w === "sky" ? 9 : props.indexOf(w as Prop) >= 0 ? 5 + props.indexOf(w as Prop) : -1;
+    if (by < 0 || !d) continue;
+    const to = /^[0-2]$/.test(t) ? 1 + +t : props.indexOf(t as Prop) >= 0 ? 4 + props.indexOf(t as Prop) : t === "up" ? 10 : t === "down" ? 11 : t === "off" ? 8 : 0;
+    out.push({ by, kind: d as Act["kind"], to, manner: s("how") === "slow" ? 1 : s("how") === "sudden" ? 2 : 0, with: o.with === true, away: o.away === true });
+  }
+  return out;
 }
 
 const PLACE_WORDS: Record<Place, string> = {
