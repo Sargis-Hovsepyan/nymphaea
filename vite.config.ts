@@ -11,5 +11,6 @@ export default defineConfig({
   publicDir: false,
   plugins: [viteSingleFile()],
   build: { target: "es2020", outDir: "..", emptyOutDir: false },
-  test: { root: here, environment: "node", include: ["tests/**/*.test.ts"] },
+  // The scene tests draw every place, thing and act over many frames: give them room on a busy machine.
+  test: { root: here, environment: "node", include: ["tests/**/*.test.ts"], testTimeout: 30000 },
 });

@@ -7,6 +7,7 @@ import { blank, decode, encode, withProps, withWho, PROPS, type Spec } from "../
 import { handAt, reachIK } from "../src/compose/figure";
 import { looped, timeline } from "../src/compose/timeline";
 import { exercise } from "./support/exercise";
+import { readSpec } from "../src/compose/read";
 
 const act = (o: Partial<Act>): Act => ({ by: 0, kind: "go", to: 0, manner: 0, with: false, away: false, ...o });
 const base: Spec = blank(7, { place: "room", who: 2, cast: [3, 20], props: ["door", "candle", "cup", "table"] });
@@ -50,6 +51,18 @@ describe("acts in the id", () => {
       .toBe("the first figure opens the door, then the first figure leaves by the door as the candle goes out");
     expect(describeActs({ ...base, acts: [act({ by: PAIR, kind: "hug" })] })).toBe("the two embrace");
     expect(describeActs({ ...base, acts: [act({ by: SKY, kind: "rain", away: true })] })).toBe("the rain stops");
+  });
+});
+
+describe("who does what", () => {
+  const who = (t: string) => (readSpec(t).acts || []).map((a) => a.by + ":" + a.kind + (a.to ? ">" + a.to : ""));
+  it("gives each person their own acts, and a pronoun to the person it means", () => {
+    // "her" makes the second figure a she, so "She read it" is hers, not his.
+    expect(who("Tom gave her the letter. She read it by the lamp, then sat down on the bench and wept.")).toEqual(["0:give>2", "1:read", "1:sit>6", "1:weep"]);
+    expect(who("Mara handed the letter to Tom. She smiled.")).toEqual(["0:give>2", "0:laugh"]);
+    expect(who("He kissed her and she laughed.")).toEqual(["4:kiss", "1:laugh"]);
+    expect(readSpec("He gave her the letter.").who).toBe(2);
+    expect(readSpec("She walked to London.").who).toBe(1);
   });
 });
 

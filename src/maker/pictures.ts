@@ -1,7 +1,8 @@
 // The Pictures tab: one compact card per picture (thumbnail, caption, paragraph). A card opens to its
 // full editor, one at a time. Moving, adding, removing and choosing the cover all go through the
 // Guard, so a caption can never stop being a quote of the author's words.
-import { decode, encode, blank, withWho, LABEL, PLACES, POSES, PROPS, SEASONS, SHOTS, SKIES, TIMES, describe, type Spec } from "../compose/spec";
+import { decode, encode, blank, LABEL, type Spec } from "../compose/spec";
+import { actsSummary, pictureEditor } from "./pictureEdit";
 import { inReach, readQuoteAt, trackSpecs } from "../compose/read";
 import { shown, type Hit } from "../stage/locate";
 import { NUM } from "../settings";
@@ -73,49 +74,6 @@ export function redrawFrom(k: number, h: Hit): void {
   toast("Picture " + (NUM[k] || k + 1) + " is now drawn from “" + clip(shown(quote), 40) + "”." + (had ? " The painting was for the old words, so the drawing shows now." : ""), false, UNDO);
 }
 
-/* ---------------- the composed scene's controls ---------------- */
-/**
- * One field of the composed-scene editor. To add a control (Shot, Pose, Season...), add an entry to
- * GEN_FIELDS: its `get` reads the current value as a string, its `set` returns the changed Spec.
- * Buttons that act on a scene without a value (like Vary) go in GEN_ACTIONS.
- */
-export interface GenField { id: string; label: string; options: readonly string[]; name: (v: string) => string; get: (sp: Spec) => string; set: (sp: Spec, v: string) => Spec }
-export interface GenAction { id: string; label: string; title: string; run: (sp: Spec) => Spec }
-
-const WHO_NAME = ["Nobody", "One", "Two", "A few"];
-export const GEN_FIELDS: GenField[] = [
-  { id: "place", label: "Place", options: PLACES, name: (v) => cap(LABEL.place[v as Spec["place"]].replace(/^(a|an|the) /, "")), get: (s) => s.place, set: (s, v) => ({ ...s, place: v as Spec["place"] }) },
-  { id: "time", label: "Time of day", options: TIMES, name: cap, get: (s) => s.time, set: (s, v) => ({ ...s, time: v as Spec["time"] }) },
-  { id: "sky", label: "Sky", options: SKIES, name: cap, get: (s) => s.sky, set: (s, v) => ({ ...s, sky: v as Spec["sky"] }) },
-  { id: "season", label: "Season", options: SEASONS, name: (v) => v === "none" ? "Any season" : cap(v), get: (s) => s.season, set: (s, v) => ({ ...s, season: v as Spec["season"] }) },
-  { id: "who", label: "Figures", options: ["0", "1", "2", "3"], name: (v) => WHO_NAME[+v], get: (s) => String(s.who), set: (s, v) => withWho(s, +v) },
-  { id: "pose", label: "Doing", options: POSES, name: (v) => v === "stand" ? "Standing" : cap(LABEL.pose[v as Spec["pose"]]), get: (s) => s.pose, set: (s, v) => withWho({ ...s, pose: v as Spec["pose"], who: Math.max(s.who, v === "pair" ? 2 : v === "stand" ? s.who : 1) }, Math.max(s.who, v === "pair" ? 2 : v === "stand" ? s.who : 1)) },
-  { id: "shot", label: "Shot", options: SHOTS, name: (v) => ({ wide: "Wide view", mid: "Nearer", close: "Close up" } as Record<string, string>)[v], get: (s) => s.shot, set: (s, v) => ({ ...s, shot: v as Spec["shot"] }) },
-  { id: "focus", label: "Focus on", options: ["-", ...PROPS], name: (v) => v === "-" ? "No thing in focus" : cap(LABEL.prop[v as Spec["props"][number]].replace(/^(a|an) /, "")), get: (s) => s.props[0] || "-", set: (s, v) => v === "-" ? s : ({ ...s, props: [v as Spec["props"][number], ...s.props.filter((p) => p !== v)].slice(0, 4) }) },
-];
-export const GEN_ACTIONS: GenAction[] = [
-  { id: "vary", label: "Vary", title: "A new layout of the same place", run: (s) => ({ ...s, seed: (s.seed + 7919) % 46656 }) },
-  { id: "shuffle", label: "Shuffle", title: "A new moment in the same layout: clouds, people, small things", run: (s) => ({ ...s, moment: (s.moment + 487) % 1296 }) },
-];
-
-/** The controls under a composed picture, built from the descriptors above. */
-function genEditor(sp: Spec): HTMLElement {
-  const box = document.createElement("div"); box.className = "mk-gen";
-  GEN_FIELDS.forEach((f) => {
-    const s = document.createElement("select"); s.className = "mk-input"; s.dataset.gen = f.id; s.dataset.f = "g-" + f.id; s.setAttribute("aria-label", f.label); s.title = f.label;
-    const cur = f.get(sp);
-    f.options.forEach((v) => { const o = document.createElement("option"); o.value = v; o.textContent = f.name(v); o.selected = v === cur; s.appendChild(o); });
-    box.appendChild(s);
-  });
-  GEN_ACTIONS.forEach((a) => {
-    const b = document.createElement("button"); b.type = "button"; b.className = "btn quiet"; b.dataset.genAct = a.id; b.dataset.f = "g-" + a.id; b.textContent = a.label; b.title = a.title;
-    box.appendChild(b);
-  });
-  const d = document.createElement("p"); d.className = "mk-gen-d"; d.textContent = cap(describe(sp)) + ".";
-  box.appendChild(d);
-  return box;
-}
-
 /* ---------------- cards ---------------- */
 function sceneOptions(sel: HTMLSelectElement, value: string): void {
   sel.textContent = "";
@@ -171,7 +129,16 @@ function cardBody(s: SceneRef, k: number): HTMLElement {
   }
   body.appendChild(q);
   const sp = decode(s.scene);
-  if (sp) body.appendChild(genEditor(sp));
+  if (sp) {
+    const ed = pictureEditor(s.scene, sp, {
+      edit: (fn) => editSpec(k, fn),
+      reread: () => decode(composeFor(s.after, s.quote)),
+      large: () => hooks.openLarge(k),
+      mark: () => sess.preview.send({ type: "scroll", block: s.after, picture: true }),
+    });
+    editors.push(ed.stop);
+    body.appendChild(ed.el);
+  }
   const pr = paintRow(s, k);
   if (pr) body.appendChild(pr);
   const mv = canMove(B.blocks, s), busy = painting.has(pkey(s));
@@ -185,7 +152,11 @@ function cardBody(s: SceneRef, k: number): HTMLElement {
   return body;
 }
 
+/** The players of open editors, stopped when the list is drawn again. */
+const editors: (() => void)[] = [];
+
 export function renderScenes(): void {
+  editors.splice(0).forEach((stop) => stop());
   let specs: ReturnType<typeof trackSpecs> = []; try { specs = trackSpecs(book().blocks); } catch { /* chips are optional */ }
   const B = book(), list = $("mkScenes");
   // Keep keyboard focus on the same control through the rebuild (buttons and selects, not text fields).
@@ -213,8 +184,10 @@ export function renderScenes(): void {
     const c = document.createElement("span"); c.className = "card-cap"; c.textContent = s.caption || "No caption";
     const m = document.createElement("span"); m.className = "card-m"; m.textContent = "¶ " + pNumber(s.after) + (isCover(s) ? " · Cover" : "");
     const rd = decode(s.scene) || specs[s.after];
-    if (rd) [rd.place === "inner" ? "" : LABEL.place[rd.place].replace(/^(a|an|the) /, ""), rd.time].filter(Boolean).forEach((x) => { const g = document.createElement("b"); g.className = "card-tag"; g.textContent = x; m.appendChild(g); });
-    t.append(c, m); head.append(th, t); li.appendChild(head);
+    if (rd) [rd.place === "inner" ? (rd.acts?.length ? "stage" : "") : LABEL.place[rd.place].replace(/^(a|an|the) /, ""), rd.time].filter(Boolean).forEach((x) => { const g = document.createElement("b"); g.className = "card-tag"; g.textContent = x; m.appendChild(g); });
+    const acting = actsSummary(decode(s.scene));
+    if (acting) { const ac = document.createElement("span"); ac.className = "card-act"; ac.textContent = acting; t.append(c, ac, m); } else t.append(c, m);
+    head.append(th, t); li.appendChild(head);
     if (open) li.appendChild(cardBody(s, k));
     list.appendChild(li);
   });
@@ -265,6 +238,14 @@ export function editSpec(k: number, fn: (sp: Spec) => Spec): void {
   if (had) toast("The painting was for the old scene, so the drawing shows now. Paint again for the new one.", false, UNDO);
 }
 
+/** Take picture k out (undoable; it is listed under Removed, to restore). */
+export function removePicture(k: number): void {
+  const B = book(), s = B.scenes[k];
+  if (!s) return;
+  checkpoint(); noteRemoved(s); B.scenes.splice(k, 1); commitScenes(B.scenes);
+  toast("Removed picture " + (k + 1) + ".", false, UNDO);
+}
+
 /** Add a picture after paragraph `i` (a composed scene read from the passage) and open its card. */
 export function addPictureAfter(i: number): void {
   const B = book(), scene = composeFor(i);
@@ -279,7 +260,7 @@ export function addPictureAfter(i: number): void {
   sess.preview.send({ type: "scroll", block: i, picture: true });
 }
 
-function moveCard(k: number, dir: -1 | 1): void {
+export function moveCard(k: number, dir: -1 | 1): void {
   const B = book(), m = movePicture(B.blocks, B.scenes, k, dir);
   if (!m) return;
   checkpoint();
@@ -316,9 +297,6 @@ export function initScenes(): void {
       openKey = pkey(s);
       delete s.img; delete s.prompt;
       commitScenes(B.scenes);
-    } else if (t.dataset.gen) {
-      const fld = GEN_FIELDS.find((g) => g.id === t.dataset.gen);
-      if (fld) editSpec(k, (sp) => fld.set(sp, (t as HTMLSelectElement).value));
     } else if (f === "p-prompt") {
       const v = (t as HTMLTextAreaElement).value.trim();
       if (v && v !== briefFor({ ...s, prompt: undefined }).prompt) s.prompt = v.slice(0, 1200); else delete s.prompt;
@@ -335,7 +313,7 @@ export function initScenes(): void {
     if (!b || !li || li.dataset.k == null) return;
     const k = +li.dataset.k, B = book(), s = B.scenes[k], f = b.dataset.f || "";
     if (f === "card-h") { if (li.classList.contains("open")) { openKey = ""; renderScenes(); (list.querySelector(`li[data-k="${k}"] .card-h`) as HTMLElement).focus({ preventScroll: true }); } else openCard(k, true); return; }
-    if (f === "x") { checkpoint(); noteRemoved(s); B.scenes.splice(k, 1); commitScenes(B.scenes); toast("Removed picture " + (NUM[k] || k + 1) + ".", false, UNDO); }
+    if (f === "x") removePicture(k);
     else if (f === "go") { sess.preview.send({ type: "scroll", block: s.after, picture: true }); if (narrow()) setPane("book"); }
     else if (f === "mv-up") moveCard(k, -1);
     else if (f === "mv-dn") moveCard(k, 1);
@@ -344,10 +322,6 @@ export function initScenes(): void {
       if (isCover(s)) { delete B.cover; toast("The cover is chosen by the book again.", false, UNDO); }
       else { B.cover = s.scene; toast("Picture " + (NUM[k] || k + 1) + " is the cover.", false, UNDO); }
       commitScenes(B.scenes);
-    }
-    else if (b.dataset.genAct) {
-      const a = GEN_ACTIONS.find((g) => g.id === b.dataset.genAct);
-      if (a) editSpec(k, a.run);
     }
     else if (f === "q-pick") hooks.armWords(k);
     else if (f === "p-make") paint(s).catch(() => {});

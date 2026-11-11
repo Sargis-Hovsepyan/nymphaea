@@ -5,11 +5,14 @@
 import { namedWords, QUOTE_WINDOW, readQuoteAt, trackSpecs, type Named } from "../compose/read";
 import { shown } from "../stage/locate";
 import { rowsHtml, rowsOf, rowsOfReading } from "./readout";
-import { decode, describe, SHOTS, type Spec } from "../compose/spec";
+import { decode, type Spec } from "../compose/spec";
 import { plain } from "../inline";
 import { words } from "../stage/keywords";
 import type { Block } from "../types";
-import { composeFor, editSpec, GEN_ACTIONS, openCard, pNumber } from "./pictures";
+import { composeFor, editSpec, moveCard, openCard, pNumber, removePicture } from "./pictures";
+import { pictureEditor, stage } from "./pictureEdit";
+import { canMove } from "./pictureMove";
+import { sceneLabel } from "../compose";
 import { checkpoint } from "./undo";
 import { $, book, commitScenes, hooks, narrow, plural, sess } from "./session";
 import { setPane } from "./ui";
@@ -88,22 +91,22 @@ export const readingBlock = (): number => whereBlock;
 
 /* ---------------- the picture inspector ---------------- */
 let inspK = -1;
-const SHOT_NAME: Record<string, string> = { wide: "Wide", mid: "Nearer", close: "Close" };
 const PRONOUNS = new Set(["i", "me", "my", "he", "him", "his", "she", "her", "hers", "we", "us", "our", "they", "them", "their", "you", "your", "it"]);
 
 export function closeInspector(): void {
   if (inspK < 0) return;
-  inspK = -1; $("mkInsp").hidden = true;
+  inspK = -1; $("mkInsp").hidden = true; stopInsp();
   sess.preview.send({ type: "mark", block: -1, words: [] });
   if (!$("mkWords").hidden) return;
   sess.preview.send({ type: "span", from: 0, to: 0, text: "" });
 }
 
-/** Open the inspector for picture k: what the text named, the shot, and quick changes. */
+/** Open the inspector for picture k: the picture playing, what the text named, and the same editor as its card. */
 export function inspect(k: number): void {
   const B = book(), s = B.scenes[k];
   if (!s || narrow()) return;
   inspK = k;
+  stopInsp();
   const sp = decode(s.scene);
   let rd: Spec | null = sp;
   if (!rd) { try { rd = trackSpecs(B.blocks)[s.after]; } catch { rd = null; } }
@@ -111,28 +114,45 @@ export function inspect(k: number): void {
   const nw = namedWords(plain(passage));
   // Pronouns count people for the drawing but make poor evidence to show.
   nw.people = nw.people.filter((w) => !PRONOUNS.has(w.toLowerCase()));
-  // The staged reading (place, hour, weather, season, things, figures, motion), each with the words that named it.
+  // The staged reading (place, hour, weather, season, things, figures, motion, acts), each with the words that named it.
   const rq = s.quote && sp ? readQuoteAt(B.blocks, s.after, s.quote) : null;
   const named = rq ? rq.named.words : nw;
   const list = rq ? rowsOfReading(rq) : rd ? rowsOf(rd, nw) : [];
   const rows = rowsHtml(list, 3);
-  const why = rq ? "Your words decide, the rest of the paragraph fills what they leave open, and the chapter carries the rest."
-    : list.some((r) => r.words.length) ? "Green words are marked in the book. The rest is carried from the chapter around it." : "The passage names little, so the setting is carried from the chapter around it.";
   const box = $("mkInsp");
-  box.innerHTML = `<header><b>Picture ${k + 1}</b><span>¶ ${pNumber(s.after)}</span><button type="button" class="mk-icon" data-a="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>` +
+  const mv = canMove(B.blocks, s);
+  box.innerHTML = `<header><b>Picture ${k + 1}</b><span>Paragraph ${pNumber(s.after)}</span><button type="button" class="mk-icon" data-a="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>` +
+    `<div class="in-body">` +
     (s.quote ? `<blockquote class="in-q">${esc(clip(shown(s.quote), 180))}</blockquote>` : "") +
-    (sp ? `<p class="in-d">${esc(cap(describe(sp)))}</p>` : `<p class="in-d">A drawn scene from the library.</p>`) +
-    (rows ? `<dl class="in-f layered">${rows}</dl><p class="in-why">${why}</p>` : "") +
-    (sp ? `<div class="seg in-shot" role="group" aria-label="Shot">${SHOTS.map((v) => `<button type="button" data-shot="${v}" aria-pressed="${sp.shot === v}">${SHOT_NAME[v]}</button>`).join("")}</div>` : "") +
-    `<div class="in-acts">${sp ? "" : `<button type="button" class="btn primary" data-a="compose" title="Draw this picture from what the passage says, with shot, vary and shuffle">Compose from the text</button>`}${sp ? GEN_ACTIONS.map((a) => `<button type="button" class="btn" data-g="${a.id}" title="${esc(a.title)}">${a.label}</button>`).join("") : ""}<button type="button" class="btn" data-a="words" title="Select the words in the book this picture should show">${s.quote ? "Other words" : "Choose words"}</button><button type="button" class="btn" data-a="card">Edit</button></div>`;
+    `<div class="in-ed"></div>` +
+    (rows ? `<details class="in-why"><summary>What the words named</summary><dl class="in-f layered">${rows}</dl></details>` : "") +
+    `<div class="in-acts">${sp ? "" : `<button type="button" class="btn primary" data-a="compose" title="Draw this picture from what the passage says">Compose from the text</button>`}` +
+    `<button type="button" class="btn" data-a="words" title="Select the words in the book this picture should show">${s.quote ? "Other words" : "Choose words"}</button>` +
+    `<button type="button" class="btn quiet" data-a="up"${mv.up ? "" : " disabled"} title="Move up one paragraph">Up</button><button type="button" class="btn quiet" data-a="down"${mv.down ? "" : " disabled"} title="Move down one paragraph">Down</button>` +
+    `<button type="button" class="btn quiet" data-a="remove">Remove</button><button type="button" class="btn quiet" data-a="card">In the list</button></div></div>`;
+  const host = box.querySelector<HTMLElement>(".in-ed")!;
+  if (sp) {
+    const ed = pictureEditor(s.scene, sp, {
+      edit: (fn) => { keepInsp = true; editSpec(k, fn); inspect(k); },
+      reread: () => decode(composeFor(s.after, s.quote)),
+      large: () => hooks.openLarge(k),
+      mark: () => sess.preview.send({ type: "mark", block: s.after, words: named.act }),
+    });
+    host.appendChild(ed.el); stopEd = ed.stop;
+  } else {
+    stopEd = stage(host, s.scene, null, sceneLabel(s.scene), { large: () => hooks.openLarge(k) }).stop;
+  }
   box.hidden = false;
   const all = (Object.keys(named) as (keyof Named)[]).flatMap((key) => named[key]).filter((w) => !PRONOUNS.has(w.toLowerCase()));
   sess.preview.send({ type: "mark", block: s.after, words: all });
   if (s.quote) { const parts = s.quote.split("\n"); sess.preview.send({ type: "span", from: Math.max(0, s.after - parts.length + 1 - QUOTE_WINDOW), to: s.after, text: shown(s.quote) }); }
 }
 
+let stopEd: (() => void) | null = null;
+const stopInsp = () => { stopEd?.(); stopEd = null; };
+
 function onInspClick(e: Event): void {
-  const t = (e.target as HTMLElement).closest("button"); if (!t || inspK < 0) return;
+  const t = (e.target as HTMLElement).closest("button"); if (!t || inspK < 0 || !t.dataset.a) return;
   const k = inspK;
   if (t.dataset.a === "close") return closeInspector();
   if (t.dataset.a === "compose") {
@@ -143,10 +163,13 @@ function onInspClick(e: Event): void {
   }
   if (t.dataset.a === "card") { setPane("manuscript", "pictures"); openCard(k, true); return; }
   if (t.dataset.a === "words") { closeInspector(); hooks.armWords(k); return; }
-  keepInsp = true;
-  if (t.dataset.shot) { editSpec(k, (sp: Spec) => ({ ...sp, shot: t.dataset.shot as Spec["shot"] })); inspect(k); return; }
-  const g = GEN_ACTIONS.find((a) => a.id === t.dataset.g);
-  if (g) { editSpec(k, g.run); inspect(k); }
+  if (t.dataset.a === "remove") { closeInspector(); removePicture(k); return; }
+  if (t.dataset.a === "up" || t.dataset.a === "down") {
+    const id = book().scenes[k].scene;
+    keepInsp = true; moveCard(k, t.dataset.a === "up" ? -1 : 1);
+    const n = book().scenes.findIndex((x) => x.scene === id);
+    inspect(n >= 0 ? n : k);
+  }
 }
 
 export function initNav(): void {

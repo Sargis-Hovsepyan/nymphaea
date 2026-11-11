@@ -1,5 +1,6 @@
 // The Storyboard: every picture as a frame, grouped by chapter, with ghost frames where a strong
 // passage has no picture. Click a frame to open its card, double-click to see it in the book.
+import { actsSummary } from "./pictureEdit";
 import { decode } from "../compose/spec";
 import { plain } from "../inline";
 import { NUM } from "../settings";
@@ -7,7 +8,7 @@ import { captionFor } from "../stage/auto";
 import type { SceneRef } from "../types";
 import { showInBook } from "./goto";
 import { addPictureAfter, composeFor, openCard, pNumber } from "./pictures";
-import { $, book, hasText, plural, sess } from "./session";
+import { $, book, hasText, hooks, plural, sess } from "./session";
 import { chapterBlocks, currentSuggestions, groupByChapter, tagsOf, type Suggestion } from "./suggest";
 import { thumb } from "./studio";
 import { setPane } from "./ui";
@@ -39,7 +40,11 @@ function picFrame(s: SceneRef, k: number): HTMLElement {
   if (s.img && sess.images[s.img]) tags.append(tag("painted"));
   open.append(thumbBox(s), el("q", "bd-cap", s.caption || "No caption"), tags);
   const show = el("button", "bd-show", "Show in book"); show.type = "button"; show.dataset.act = "show";
-  f.append(open, show);
+  const play = el("button", "bd-show", "Play"); play.type = "button"; play.dataset.act = "large"; play.setAttribute("aria-label", "Play picture " + (k + 1) + " large");
+  const what = actsSummary(sp);
+  if (what) open.insertBefore(el("span", "bd-what", what), tags);
+  f.append(open, el("span", "bd-btns"));
+  f.lastElementChild!.append(play, show);
   return f;
 }
 
@@ -52,7 +57,7 @@ function ghostFrame(g: Suggestion): HTMLElement {
   let cap = "";
   try { cap = captionFor(book().blocks[g.block].text, composeFor(g.block)); } catch { /* no caption */ }
   const tags = el("span", "bd-tags");
-  tags.append(el("span", "score", "strength " + g.strength.toFixed(2)), tag("¶ " + pNumber(g.block)), ...tagsOf(g.spec).slice(0, 3).map(tag));
+  tags.append(el("span", "score", g.strength >= 0.75 ? "strong moment" : g.strength >= 0.5 ? "good moment" : "quiet moment"), tag("¶ " + pNumber(g.block)), ...tagsOf(g.spec).slice(0, 3).map(tag));
   const body = el("div", "bd-body");
   body.append(el("q", "bd-cap", cap || plain(book().blocks[g.block].text).slice(0, 60)), tags);
   const show = el("button", "bd-show", "Show in book"); show.type = "button"; show.dataset.act = "show";
@@ -110,6 +115,7 @@ export function initStoryboard(): void {
     if (act === "open") { const k = +(f.dataset.k || -1); if (e.detail > 1) return; setPane("manuscript", "pictures"); openCard(k); }
     else if (act === "show") { const s = f.dataset.k != null ? book().scenes[+f.dataset.k] : null; showInBook(s ? s.after : +(f.dataset.b || 0), !!s); }
     else if (act === "add") addPictureAfter(+(f.dataset.b || 0));
+    else if (act === "large") hooks.openLarge(+(f.dataset.k || -1));
   });
   root.addEventListener("dblclick", (e) => {
     const f = (e.target as HTMLElement).closest<HTMLElement>(".bd-frame[data-k]");

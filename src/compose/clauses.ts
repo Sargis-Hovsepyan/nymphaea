@@ -102,12 +102,18 @@ export function readActs(words: Word[], lex: Lexicon): { acts: RawAct[]; refs: R
   /** The thing a noun names; a two-word name ("fire escape") can block it. */
   const propOf = (w: string, next = ""): Prop | null => lex.propOf(w, next) || (lex.propOf(w) ? null : EXTRA_PROP[w] || null);
   const refByName = (name: string) => { let i = refs.findIndex((r) => r.name === name); if (i < 0) { refs.push({ name, g: "?" }); i = refs.length - 1; } return i; };
-  const fits = (r: Ref, g: Ref["g"]) => r.g === g || (r.g === "?" && g !== "i") || g === "?";
-  /** A pronoun: the subject of the clause before when it fits, else the latest person who fits, else someone new. */
+  /**
+   * A pronoun: first someone already known to be that ("her" two words back makes "she" her), the
+   * subject of the clause before before anyone else; then someone not known either way; else someone new.
+   */
   const refByPron = (g: Ref["g"], not = -1): number => {
     if (g === "i") { let i = refs.findIndex((r) => r.g === "i"); if (i < 0) { refs.push({ g: "i" }); i = refs.length - 1; } return i; }
-    if (lastSubj && lastSubj.t === "fig" && lastSubj.ref !== not && fits(refs[lastSubj.ref], g)) { const r = refs[lastSubj.ref]; if (r.g === "?") r.g = g; return lastSubj.ref; }
-    for (let i = refs.length - 1; i >= 0; i--) if (i !== not && fits(refs[i], g)) { if (refs[i].g === "?") refs[i].g = g; return i; }
+    const last = lastSubj && lastSubj.t === "fig" && lastSubj.ref !== not ? lastSubj.ref : -1;
+    const order = [last, ...refs.map((_, i) => refs.length - 1 - i)].filter((i) => i >= 0 && i !== not);
+    const known = g === "?" ? -1 : order.find((i) => refs[i].g === g);
+    if (known != null && known >= 0) return known;
+    const open = order.find((i) => refs[i].g === "?" || g === "?");
+    if (open != null && open >= 0) { if (refs[open].g === "?" && g !== "?") refs[open].g = g; return open; }
     refs.push({ g }); return refs.length - 1;
   };
   /** "They", "we", "the children": everyone in the picture, without naming anyone new. */

@@ -29,6 +29,7 @@ import { initStudioMode } from "./studio";
 import { onPaste, renderOutline, renderTypo } from "./textPane";
 import { undo } from "./undo";
 import { initNav, onWhere, renderNav } from "./bookNav";
+import { initLarge } from "./large";
 import { initExtras, refreshExtras } from "./extras";
 import { initViews, refreshView } from "./views";
 import { load, store } from "../store";
@@ -163,6 +164,7 @@ export function initMaker(p: Pristine): void {
   initUiState();
   initViews();
   initNav();
+  initLarge();
   initExtras();
   initExport();
   initShortcuts();
