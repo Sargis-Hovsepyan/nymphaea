@@ -17,7 +17,7 @@ THESIS: The book is a live galley proof on the table and every Studio control is
 
 OWN-WORLD: User re-theme, binding: jet black room (60%), space gray floating panels (30%), forest green (10%) only for marks, the active state and the one primary action (Export); pollen amber for warnings. Dark by default, light mode in cool grey. Archivo (condensed widths) for the interface, Geist Mono only for counts and paragraph numbers, the book's own face for quoted captions. Panels float with 12 to 14px radii and soft shadows; inside them, sections are ruled, not boxed.
 
-APPROVAL: The user approved the static mockup .impeccable/mocks/studio.html on 2026-11-11 ("nice but change this bluish theme ... 60 jet black, 30 space gray and 10 forest green"), then asked for more power and more book settings. The re-themed mockup is the critique reference.
+APPROVAL: The user approved a static mockup (since removed) on 2026-11-11 ("nice but change this bluish theme ... 60 jet black, 30 space gray and 10 forest green"), then asked for more power and more book settings. The shipped Studio and DESIGN.md are now the reference.
 
 STORY: The writer sees their book at once, sees where the pictures are as green marks on a thumb index, opens a picture or a view, changes the look live, exports.
 

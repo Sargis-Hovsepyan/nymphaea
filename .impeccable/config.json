@@ -2,13 +2,6 @@
   "detector": {
     "ignoreRules": [],
     "ignoreFiles": [],
-    "ignoreValues": [
-      {
-        "rule": "design-system-font",
-        "value": "eb garamond",
-        "createdAt": "2026-11-11T09:42:26.597Z",
-        "reason": "Claude: EB Garamond is one of the book's own type pairings (src/design/type.ts); DESIGN.md's Book Face Rule sets quotes in the book's face, and the mockup uses it as that stand-in"
-      }
-    ]
+    "ignoreValues": []
   }
 }
