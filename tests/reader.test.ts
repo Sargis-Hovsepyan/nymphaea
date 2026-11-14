@@ -53,7 +53,7 @@ describe("pace and time left", () => {
 describe("structure shared by the screen and the EPUB", () => {
   it("knows which headings already carry a number", () => {
     ["Chapter One", "3", "IV. The Sea", "Prologue", "Part II", "Afterword", "XII"].forEach((t) => expect(hasOwnNumber(t)).toBe(true));
-    ["The Sea", "Mild weather", "Dim light", "I wonder", "Civil"].forEach((t) => expect(hasOwnNumber(t)).toBe(false));
+    ["The Sea", "Mild weather", "Dim light", "I wonder", "Civil", "Parting Words", "Actually", "Bookshop"].forEach((t) => expect(hasOwnNumber(t)).toBe(false));
   });
   it("takes explicit beats as given, with a length cap, and falls back to the automatic rule", () => {
     const blocks: Block[] = [h("One"), para(), { type: "p", text: "She waited." }, para(), { type: "p", text: "A long one that is explicitly a beat but short enough." }, para()];

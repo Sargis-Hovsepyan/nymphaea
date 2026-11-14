@@ -43,7 +43,7 @@ function skyline(list: { w: number; h: number }[], gap: number): { d: string; bo
 }
 const SKY_B = skyline(BACK, 1), SKY_F = skyline(FRONT, 4);
 const WINDOWS: { x: number; y: number; r: number }[] = [];
-SKY_F.boxes.forEach(([x, y, w, h], bi) => {
+SKY_F.boxes.forEach(([x, y, w], bi) => {
   for (let wy = y + 6; wy < 196; wy += 9) for (let wx = x + 4; wx < x + w - 5; wx += 7) WINDOWS.push({ x: wx, y: wy, r: rnd(bi * 31 + wx * 7 + wy) });
 });
 

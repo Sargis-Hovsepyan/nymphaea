@@ -32,13 +32,15 @@ export function undoScenes(): SceneRef[][] { return undoStack.map((s) => s.scene
 
 export function undo(): void {
   retireUndoToasts();
-  const s = undoStack.pop();
+  const s = undoStack[undoStack.length - 1];
   if (!s) { toast("Nothing to undo."); return; }
+  if (s.text && s.mdAfter !== undefined && sess.md !== s.mdAfter) {
+    // Kept on the stack: it can be undone again once the text is back.
+    toast("The text has been edited since, so that step can’t be undone here without losing your newer words. Use undo inside the editor instead.", true);
+    return;
+  }
+  undoStack.pop();
   if (s.text) {
-    if (s.mdAfter !== undefined && sess.md !== s.mdAfter) {
-      toast("The text has been edited since, so that step can’t be undone here without losing your newer words. Use undo inside the editor instead.", true);
-      return;
-    }
     sess.md = s.md; sess.userTitle = s.title; sess.meta = { ...s.meta };
     setMd(sess.md); setMetaFields();
     const parsed = parseDraft(sess.md, sess.userTitle);

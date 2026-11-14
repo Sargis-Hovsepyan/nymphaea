@@ -17,7 +17,7 @@ import { checkpoint } from "./undo";
 import { $, book, commitScenes, hooks, narrow, plural, sess } from "./session";
 import { setPane } from "./ui";
 import { setView } from "./views";
-import { cap, clip, esc } from "../text/strings";
+import { clip, esc } from "../text/strings";
 
 export interface Chapter { title: string; start: number; end: number; words: number; pics: number[] }
 

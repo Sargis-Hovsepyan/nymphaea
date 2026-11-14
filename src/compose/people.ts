@@ -56,6 +56,3 @@ export function personOf(w: string): "f" | "m" | "?" | null {
 export function isGroup(w: string): boolean {
   return GROUPS.has(w) || singular(w) != null;
 }
-
-/** Any person noun, one or many. */
-export const isPersonNoun = (w: string): boolean => personOf(w) != null || isGroup(w);

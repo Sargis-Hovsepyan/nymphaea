@@ -46,7 +46,7 @@ export async function listBooks(): Promise<{ books: Shelved[]; ok: boolean }> {
 export async function putBook(b: Shelved): Promise<boolean> {
   mem.set(b.id, b);
   const r = await run("readwrite", (s) => s.put(b));
-  if (r.ok) mem.delete(b.id);
+  if (r.ok && mem.get(b.id) === b) mem.delete(b.id); // a newer save may have replaced it meanwhile
   return r.ok;
 }
 

@@ -5,13 +5,11 @@ import { plain } from "../inline";
 import { autoBeats } from "../stage/beats";
 import type { Block } from "../types";
 
-const WORDS = /^(chapter|part|book|episode|act|prologue|epilogue|interlude|afterword|foreword|preface|\d+\b)/i;
+const WORDS = /^(chapter|part|book|episode|act|prologue|epilogue|interlude|afterword|foreword|preface|\d+)\b/i;
 // A Roman numeral counts only when it is one ("IV. The Sea", "XII"), never the first letters of a word ("Mild", "Dim").
 const ROMAN = /^(?=[IVXLCDM])M{0,3}(?:CM|CD|D?C{0,3})(?:XC|XL|L?X{0,3})(?:IX|IV|V?I{0,3})(?:[.:)]|\s*$)/;
 /** Headings that already carry their own number ("Chapter One", "3", "IV. The Sea") get none. */
-export const NUMBERED = { test: (t: string): boolean => WORDS.test(t) || ROMAN.test(t) };
-
-export const hasOwnNumber = (heading: string): boolean => NUMBERED.test(heading);
+export const hasOwnNumber = (heading: string): boolean => WORDS.test(heading) || ROMAN.test(heading);
 
 /**
  * The paragraphs set as beats. Explicit beats (from Claude) are taken as given, and then only short

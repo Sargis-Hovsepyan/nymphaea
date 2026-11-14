@@ -67,6 +67,6 @@ export function player(host: HTMLElement, opts: { beatMs?: number; onTick?: (p: 
       if (vec) { drawVector(vec, style, scene, 1, performance.now() / 1000, held); opts.onTick?.(held); }
     },
     state() { const tl = sceneTiming(scene); return { p: clock(performance.now()), loop: tl.loop, total: tl.total, paused }; },
-    stop() { cancelAnimationFrame(raf); raf = 0; vec = null; scene = ""; },
+    stop() { cancelAnimationFrame(raf); raf = 0; vec = null; scene = ""; io?.disconnect(); document.removeEventListener("visibilitychange", vis); },
   };
 }

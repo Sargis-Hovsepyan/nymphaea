@@ -103,10 +103,11 @@ const dq = (i: number, lo: number, hi: number, steps: number) => lo + (hi - lo) 
 const clampWho = (n: number) => Math.max(0, Math.min(3, n | 0));
 
 export function encode(s: Spec): string {
-  const props = s.props.slice(0, MAX_PROPS).join("+") || "-";
+  const list = Array.from(new Set(s.props)).slice(0, MAX_PROPS); // decode de-duplicates, so thing-act slots must match
+  const props = list.join("+") || "-";
   const who = clampWho(s.who);
   const mood = String(q(s.v, -1, 1, 5)) + String(q(s.a, 0, 1, 3));
-  const acts = fitActs({ who, props: s.props.slice(0, MAX_PROPS) }, s.acts);
+  const acts = fitActs({ who, props: list }, s.acts);
   const cast = who ? Array.from({ length: who }, (_, i) => (((s.cast[i] ?? 0) % 36) + 36) % 36).map((b) => b.toString(36)).join("") : "-";
   return GEN + [
     s.place, s.time, s.sky, props, String(who) + (who ? POSE_CH[s.pose] || "" : ""), cast,
@@ -201,7 +202,7 @@ export function fromLoose(o: unknown, seed = 0): Spec | null {
   const acts = looseActs(r.acts, propList);
   return withWho({
     place, time: isOf(TIMES, time) ? time : "day", sky: isOf(SKIES, sky) ? sky : "clear", season: isOf(SEASONS, season) ? season : "none",
-    props: Array.from(new Set(props)).slice(0, MAX_PROPS), who, pose: ps, cast: [], shot: isOf(SHOTS, shot) ? shot : "wide",
+    props: propList, who, pose: ps, cast: [], shot: isOf(SHOTS, shot) ? shot : "wide",
     v: Math.max(-1, Math.min(1, num(r.v, 0))), a: Math.max(0, Math.min(1, num(r.a, 0.5))), seed: sd % 46656, moment: sd % 1296,
     ...(fx.length ? { fx } : {}), ...(acts.length ? { acts } : {}),
   }, Math.max(who, ...acts.filter((a) => a.by <= 2).map((a) => a.by + 1), acts.some((a) => a.by === 4) ? 2 : 0));

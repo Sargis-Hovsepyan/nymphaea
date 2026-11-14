@@ -41,7 +41,6 @@ export interface Lexicon {
 const FLAME = new Set(["flame", "flames", "ember", "embers", "tip", "glow"]);
 
 const DET = new Set("the a an this that these those his her their my our your its one two three some every each another no".split(" "));
-const POSS = new Set("his her their my our your its".split(" "));
 const AUX = new Set("had was were is are has have been be did does do just then still also again finally soon now already almost at last once quietly".split(" "));
 const MODAL = new Set("would could should might may must will shall can wanted tried needed hoped meant decided planned wished refused longed gonna wanna".split(" "));
 const NEG = new Set(["not", "never", "no", "nor", "nobody", "nothing", "neither"]);

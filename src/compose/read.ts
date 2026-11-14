@@ -15,7 +15,7 @@ import { stem } from "../stage/stem";
 import { locate, type Hit } from "../stage/locate";
 import { isGroup, personOf } from "./people";
 import { readActs, type RawAct, type Ref, type Word } from "./clauses";
-import { ALL, OFF_AHEAD, OFF_BEHIND, PAIR, SKY, THING0, TO_FIG0, TO_NONE, TO_THING0, UP, DOWN, fitActs, type Act, type FigKind } from "./acts";
+import { ALL, OFF_AHEAD, OFF_BEHIND, PAIR, SKY, THING0, TO_FIG0, TO_NONE, TO_THING0, UP, DOWN, fitActs, type Act } from "./acts";
 import { FX, MAX_PROPS, PLACES, POSES, PROPS, SEASONS, SKIES, TIMES, isIndoor, type Place, type Pose, type Fx, type Prop, type Season, type Shot, type Sky, type Spec, type Time } from "./spec";
 
 const PLACE_LEX: Record<Place, string> = {

@@ -23,7 +23,7 @@ import { HAND, STAND, figureSvg, leanOf, mixJ, restJoints, setJoints } from "./f
 import { SIZE, effectiveShot, layout, staged, type Item } from "./layout";
 import { SKY } from "./acts";
 import { aimer, fallAt, figSegs, figurePlayer, ringAt, shownAt, thingEvents, travelAt } from "./perform";
-import { looped, prog, timeline, type Seg, type Timeline } from "./timeline";
+import { looped, prog, timeline, type Timeline } from "./timeline";
 import { fbm, rng, smooth, type Rng } from "./noise";
 import { backdrop } from "./places";
 import { group, op, path, shadow, tf, thing, type Ctx, type Mover } from "./things";
