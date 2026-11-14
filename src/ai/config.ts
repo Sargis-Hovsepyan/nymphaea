@@ -24,6 +24,8 @@ export const TEXT_PRESETS: Preset<TextKind>[] = [
     note: "Free and local. Load a model, open the Developer tab, start the server and turn on CORS." },
   { id: "compat", kind: "openai", label: "Other OpenAI-compatible server", url: "", model: "", needsKey: false,
     note: "llama.cpp server, vLLM, LocalAI, OpenRouter and most hosted APIs speak this protocol." },
+  { id: "groq", kind: "openai", label: "Groq", url: "https://api.groq.com/openai/v1", model: "openai/gpt-oss-120b", needsKey: true,
+    note: "Fast hosted open models. Uses a key from console.groq.com. The key stays in this browser." },
   { id: "anthropic", kind: "anthropic", label: "Claude (your Anthropic API key)", url: "https://api.anthropic.com", model: "claude-opus-5-5", needsKey: true,
     note: "Uses your own key from platform.claude.com. The key stays in this browser." },
 ];

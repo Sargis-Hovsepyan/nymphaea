@@ -36,7 +36,7 @@ The name comes from the water lily *Nymphaea*. The sacred blue lotus of Egypt gr
    - **Light & motion:** off, lamp, candle, focus (the paragraph you're reading stays bright) or dawn (each chapter brightens as you read). Lines can rise, fade or ink in.
    - **Pictures:** Ink, Cut paper, Glow, Ink wash, Engraving, Stipple, Riso, Generative (grown from the passage's own words), Halftone, Dithered, ASCII, Glass, Ornaments or none.
    - **Optional AI** (Pictures tab → AI models). Nothing needs a model. You can connect:
-     - a **text model** to stage the pictures: Ollama, LM Studio, any OpenAI-compatible server, or Claude with your own Anthropic API key. Its plan goes through the same Guard, and it can pick drawn scenes or describe composed ones.
+     - a **text model** to stage the pictures: Ollama, LM Studio, Groq, any OpenAI-compatible server, or Claude with your own Anthropic API key. Its plan goes through the same Guard, and it can pick drawn scenes or describe composed ones.
      - an **image model** to paint each picture: Stable Diffusion WebUI or Forge on your own computer, or any OpenAI-compatible image API. The prompt is written by rules from the composed scene, the mood and the picture style, and you can edit it per picture. The painting is then inked in your chosen style (Engraving, Dithered, Riso…), so it sits in the book's look. Paintings are kept in this browser (IndexedDB) and embedded in the exported book.
 5. **Export.**
    - **HTML book:** one file with the text, pictures, look and reading engine. It works offline.
@@ -95,6 +95,17 @@ OLLAMA_ORIGINS=https://sargis-hovsepyan.github.io ollama serve
 ```
 
 LM Studio needs "Enable CORS" switched on in its server settings. Chrome may ask once whether the site may reach devices on your local network. API keys and addresses are saved in this browser only and never written into a book. When you connect Claude, the official Anthropic SDK is loaded on demand from jsDelivr (pinned to `@anthropic-ai/sdk@1.8.0`), so the app and the books it exports stay small.
+
+### A built-in key only you can use
+
+The hosted Studio can carry your own Groq key, locked with a password, so that on any device you type the password once instead of the key. Visitors without the password see the Studio as it is.
+
+```bash
+npm run seal-key   # asks for the Groq key and a password (nothing is echoed), writes src/ai/sealed.ts
+npm run build      # then commit and push
+```
+
+Then in **AI models**, type the password into **Owner password** and press **Use the built-in Groq key**. The key is unlocked in that browser only and saved like a key typed in by hand. The locked key is in the public page, so its safety is the password's: use a long passphrase of a few random words, never a short word. To change the key or the password, run `npm run seal-key` again. To remove it, set `SEALED_GROQ` back to `""`.
 
 ## Pictures
 

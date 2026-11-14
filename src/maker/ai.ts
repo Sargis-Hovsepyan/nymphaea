@@ -3,7 +3,9 @@
 // are composed by rules. Settings are saved in this browser only (ai/config.ts).
 import { DEFAULT_AI, IMAGE_PRESETS, TEXT_PRESETS, explain, imageReady, loadAi, saveAi, textReady, type AiConfig, type ImageKind, type Preset, type TextKind } from "../ai/config";
 import { testImage } from "../ai/image";
+import { SEALED_GROQ } from "../ai/sealed";
 import { testText } from "../ai/text";
+import { unseal } from "../ai/vault";
 import { closeOnBackdrop } from "./ui";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -104,8 +106,28 @@ export function initAiPanel(onChange: (c: AiConfig) => void): void {
   bind("aiImgKey", (v) => { cfg.image.key = v; });
   bind("aiImgSteps", (v) => { const n = Math.round(+v); if (n >= 1 && n <= 150) cfg.image.steps = n; });
   $("aiImgText").addEventListener("change", (e) => { cfg.image.withText = (e.target as HTMLInputElement).checked; save(); });
+  initOwner();
   $("aiTextTest").addEventListener("click", () => runTest("aiTextTest", "aiTextRes", (s) => testText(cfg.text, s), "the text model"));
   $("aiImgTest").addEventListener("click", () => runTest("aiImgTest", "aiImgRes", (s) => testImage(cfg.image, s), "the image server"));
+}
+
+/** The owner's password unlocks the Groq key built into the page (ai/sealed.ts) into this browser's settings. */
+function initOwner(): void {
+  if (!SEALED_GROQ) return;
+  $("aiOwner").hidden = false;
+  const pw = $<HTMLInputElement>("aiOwnerPw"), go = $<HTMLButtonElement>("aiOwnerGo"), res = $("aiOwnerRes");
+  const unlock = async () => {
+    go.disabled = true; res.className = "note"; res.textContent = "Unlocking…";
+    const key = await unseal(SEALED_GROQ, pw.value);
+    go.disabled = false;
+    if (!key) { res.className = "note res-bad"; res.textContent = "Wrong password."; return; }
+    const p = TEXT_PRESETS.find((x) => x.id === "groq")!;
+    cfg.text = { kind: p.kind, url: p.url, model: p.model, key };
+    pw.value = ""; res.className = "note res-ok"; res.textContent = "Groq is connected in this browser.";
+    fill(); save();
+  };
+  go.addEventListener("click", unlock);
+  pw.addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
 }
 
 export { imageReady, textReady };
