@@ -44,7 +44,7 @@ The name comes from the water lily *Nymphaea*. The sacred blue lotus of Egypt gr
    - **Print or PDF:** a typeset page with mirrored margins, folios, and chapters on new pages.
    - **Markdown:** the text itself.
 
-The Studio opens on the **Pictures panel**: the chapters, each with a dot per picture, and the pictures. Importing a file or opening a book from the shelf lands there too. The Markdown stays closed until you open it with **Edit the text** (⌘J/Ctrl+J). The rail on the left switches between Pictures and Text, opens the AI models, and hides the panel to give the book more room.
+The Studio opens on the **Pictures panel**: how many pictures and what they show, **Stage with AI** and **Place automatically**, then the pictures themselves, with the chapters below. The design panel on the right is in five tabs: Edition, Type, Page, Light and Pictures. Importing a file or opening a book from the shelf lands there too. The Markdown stays closed until you open it with **Edit the text** (⌘J/Ctrl+J). The rail on the left switches between Pictures and Text, opens the AI models, and hides the panel to give the book more room.
 
 The centre has four views:
 - **Book:** the live book. A thumb index down its fore edge has one tab per chapter, as tall as the chapter is long, and a mark for every picture. Hover a mark to read its caption, click it to go there. Clicking a picture opens an inspector with the same editor as its card (see below), and marks in the book the words the picture was read from.
@@ -65,7 +65,7 @@ Each picture is a small card with its thumbnail (showing the telling moment of w
 - **What happens**: each act as a chip you can take out, and a switch to turn acting off or read it from the words again;
 - **Direct it**: type "make her run", "add rain", "at dawn", "closer", "no dog" or "she opens the door, then leaves". It is read the same way as the book, shows what it understood, and changes nothing until you press **Apply**. Your direction changes only the picture, never the book's words;
 - the settings, each with its name: hour, weather and shot as rows of choices, place, season, figures, the pose at rest and the thing in focus, and the motion as chips;
-- **New view** (a new layout of the place) and **New moment** (the same layout, clouds, people and small things moved).
+- right under the picture, its tools: **Redraw with AI** (the text model reads the paragraph in its chapter, with the paragraphs around it, and draws it again; it goes through the Guard and Undo takes it back), **New view** (a new layout of the place) and **New moment** (the same layout, clouds, people and small things moved). With no model connected, Redraw with AI opens the AI models sheet.
 
 Below it you can change the scene, edit the caption, **Move** the picture up or down one paragraph, **Use as cover**, show it in the book, or remove it. Moving a picture keeps its caption if it still quotes the text there, and takes a new quote from the paragraph if not. A picture drawn from chosen words shows them on its card, with **Choose other words** to pick again in the book; a banner stays until you have chosen them, and Cancel or Escape stops it.
 

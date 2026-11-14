@@ -201,6 +201,15 @@ details.in-why[open] summary{margin-bottom:8px}
 .wk-h{font-size:15px;font-weight:650;padding-top:10px}
 .acc{border-top:1px solid color-mix(in srgb,var(--ink) 7%,transparent)}
 .acc>summary{font-weight:620}
+.acc>h3{display:flex;align-items:center;min-height:44px;margin:0;font-size:15px;font-weight:620}
+.dz-tabs{display:flex;gap:2px;padding:10px 12px 8px;border-bottom:1px solid color-mix(in srgb,var(--ink) 7%,transparent);overflow-x:auto;scrollbar-width:none;flex:none}
+.dz-tabs button{border:0;background:none;color:var(--muted);font:560 13.5px var(--font-sans);padding:7px 9px;flex:1 0 auto;border-radius:8px;cursor:pointer;white-space:nowrap}
+.dz-tabs button:hover{color:var(--ink)}
+.dz-tabs button[aria-selected="true"]{color:var(--ink);background:var(--raised);box-shadow:0 0 0 1px color-mix(in srgb,var(--ink) 8%,transparent)}
+.dz-tabs button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.dz-panel{display:flex;flex-direction:column;gap:var(--sp-3)}
+.pn-tools{display:flex;flex-direction:column;gap:8px}
+.pn-tools .note:empty{display:none}
 .ty-aa{color:var(--ink)}
 .mk-type button[aria-pressed="true"] .ty-aa{color:var(--accent2)}
 :root[data-mode="light"] .mk-type button[aria-pressed="true"] .ty-aa{color:var(--accent)}
@@ -295,7 +304,8 @@ details.in-why[open] summary{margin-bottom:8px}
 .pe-chips{display:flex;flex-wrap:wrap;gap:5px}
 .pe-chips button{border:0;border-radius:999px;padding:5px 10px;font:12px var(--font-sans);color:var(--muted);background:color-mix(in srgb,var(--ink) 6%,transparent);cursor:pointer}
 .pe-chips button[aria-pressed="true"]{color:var(--ink);background:color-mix(in srgb,var(--accent) 30%,var(--raised));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 50%,transparent)}
-.pe-gen{display:flex;gap:6px}
+.pe-gen{display:flex;flex-wrap:wrap;gap:6px}
+.pe-gen .btn{flex:1 1 auto;min-height:34px;padding:0 10px;font-size:12.5px;white-space:nowrap}
 .card-act{display:block;font-size:12px;color:var(--accent2);line-height:1.35;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .bd-what{display:block;font-size:12px;color:var(--accent2);line-height:1.35;margin-top:4px}
 .bd-btns{display:flex;gap:4px}

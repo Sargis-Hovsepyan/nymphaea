@@ -233,21 +233,17 @@
           </div>
 
           <div class="wk-tabpanel" id="tabPictures" role="tabpanel" aria-labelledby="tabBtnPictures">
-            <section class="pn" aria-labelledby="pnCh"><header class="pn-h"><h2 id="pnCh">Chapters</h2><span id="mkChCount"></span></header>
-              <ol class="ch-list" id="mkChapters"></ol></section>
-            <button class="pn-text" id="mkOpenText" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-1 10-10-3-3L6 15z"/></svg><span><b>Edit the text</b>Markdown, title page and typography</span><kbd>⌘J</kbd></button>
-            <header class="pn-h pn-h2"><h2>Pictures</h2><span id="mkPicCount"></span></header>
-            <button class="pn-text" id="mkFindWords" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M4 10h7M4 14h10M4 18h6"/><circle cx="17.5" cy="14.5" r="3"/><path d="M20 17l2 2"/></svg><span><b>Picture any words</b>Select them in the book, or find them here</span></button>
-            <div class="field"><span>How many pictures</span>
-              <div class="seg" data-key="density"><button type="button" data-v="few">Few</button><button type="button" data-v="some">Some</button><button type="button" data-v="many">Many</button><button type="button" data-v="every">Every scene</button></div></div>
-            <div class="field"><span>What they show</span>
-              <div class="seg" data-key="art"><button type="button" data-v="library">Drawn scenes</button><button type="button" data-v="mixed">Best fit</button><button type="button" data-v="composed">Read from the text</button></div></div>
-            <p class="note" id="mkArtNote"></p>
-            <div class="row">
-              <button class="btn" id="mkAuto" type="button">Place automatically</button>
-              <button class="btn" id="mkAsk" type="button" hidden>Stage with AI</button>
-              <button class="btn" id="mkStop" type="button" hidden>Stop</button>
-              <button class="btn quiet" id="mkClear" type="button">Remove all</button>
+            <header class="pn-h"><h2>Pictures</h2><span id="mkPicCount"></span></header>
+            <div class="pn-tools">
+              <div class="seg" data-key="density" aria-label="How many pictures"><button type="button" data-v="few">Few</button><button type="button" data-v="some">Some</button><button type="button" data-v="many">Many</button><button type="button" data-v="every">Every scene</button></div>
+              <div class="seg" data-key="art" aria-label="What they show"><button type="button" data-v="library">Drawn</button><button type="button" data-v="mixed">Best fit</button><button type="button" data-v="composed">From the text</button></div>
+              <p class="note" id="mkArtNote"></p>
+              <div class="row">
+                <button class="btn primary" id="mkAsk" type="button">✦ Stage with AI</button>
+                <button class="btn" id="mkAuto" type="button">Place automatically</button>
+                <button class="btn" id="mkStop" type="button" hidden>Stop</button>
+                <button class="btn quiet" id="mkClear" type="button">Remove all</button>
+              </div>
             </div>
             <div class="mk-aibar" id="mkAiBar">
               <span class="mk-aistate" id="mkAiState"></span>
@@ -259,6 +255,10 @@
             <div class="mk-sugg" id="mkSugg" hidden></div>
             <ol class="mk-scenes" id="mkScenes"></ol>
             <p class="note">To add a picture, click a paragraph in the book and choose Add a picture.</p>
+            <button class="pn-text" id="mkFindWords" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M4 10h7M4 14h10M4 18h6"/><circle cx="17.5" cy="14.5" r="3"/><path d="M20 17l2 2"/></svg><span><b>Picture any words</b>Select them in the book, or find them here</span></button>
+            <section class="pn" aria-labelledby="pnCh"><header class="pn-h pn-h2"><h2 id="pnCh">Chapters</h2><span id="mkChCount"></span></header>
+              <ol class="ch-list" id="mkChapters"></ol></section>
+            <button class="pn-text" id="mkOpenText" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-1 10-10-3-3L6 15z"/></svg><span><b>Edit the text</b>Markdown, title page and typography</span><kbd>⌘J</kbd></button>
           </div>
         </div>
       </aside>
@@ -295,33 +295,25 @@
       </section>
 
       <aside class="wk-right" id="paneDesign" aria-label="Design">
+        <div class="dz-tabs" id="mkDzTabs" role="tablist" aria-label="Design"><button type="button" role="tab" id="dzT-edition" data-dz="edition" aria-controls="dz-edition" aria-selected="true">Edition</button><button type="button" role="tab" id="dzT-type" data-dz="type" aria-controls="dz-type" aria-selected="false">Type</button><button type="button" role="tab" id="dzT-page" data-dz="page" aria-controls="dz-page" aria-selected="false">Page</button><button type="button" role="tab" id="dzT-light" data-dz="light" aria-controls="dz-light" aria-selected="false">Light</button><button type="button" role="tab" id="dzT-pictures" data-dz="pictures" aria-controls="dz-pictures" aria-selected="false">Pictures</button></div>
         <div class="wk-scroll">
-          <h2 class="wk-h">Edition</h2>
+          <div class="dz-panel" id="dz-edition" role="tabpanel" aria-labelledby="dzT-edition">
           <div class="mk-presets" id="mkPresets" role="group" aria-label="Editions"></div>
-
-          <details class="acc" open>
-            <summary>Print</summary>
-            <div class="field"><span>Printed page size</span>
-              <div class="seg" data-key="trim"><button type="button" data-v="a5">A5</button><button type="button" data-v="6x9">6 × 9 in</button><button type="button" data-v="a4">A4</button><button type="button" data-v="letter">Letter</button></div></div>
-          </details>
-
-          <details class="acc" open>
-            <summary>Colour</summary>
+          <section class="acc"><h3>Colour</h3>
             <div class="mk-themes" data-key="theme" id="mkThemes"></div>
             <div class="field"><span>Light or dark</span>
               <div class="seg" data-key="mode"><button type="button" data-v="auto">Follow the device</button><button type="button" data-v="light">Light</button><button type="button" data-v="dark">Dark</button></div></div>
-          </details>
-
-          <details class="acc" open>
-            <summary>Type</summary>
+          </section>
+          <div class="row"><button class="btn quiet" id="mkResetLook" type="button">Reset to the default look</button></div>
+          </div>
+          <div class="dz-panel" id="dz-type" role="tabpanel" aria-labelledby="dzT-type" hidden>
+          <section class="acc"><h3>Type</h3>
             <div class="mk-type" data-key="pairing" id="mkType"></div>
             <div class="field"><span>Size <b data-out="fontSize"></b></span><input type="range" data-key="fontSize" min="15" max="25" step="1" aria-label="Text size"></div>
             <div class="field"><span>Line length in characters</span>
               <div class="seg" data-key="measure"><button type="button" data-v="narrow">55</button><button type="button" data-v="normal">66</button><button type="button" data-v="wide">75</button></div></div>
-          </details>
-
-          <details class="acc">
-            <summary>Paragraphs and chapters</summary>
+          </section>
+          <section class="acc"><h3>Paragraphs and chapters</h3>
             <div class="field"><span>Paragraphs</span>
               <div class="seg" data-key="para"><button type="button" data-v="book">Indented</button><button type="button" data-v="web">Spaced</button></div></div>
             <div class="field"><span>Alignment</span>
@@ -335,10 +327,30 @@
             <div class="field"><span>Scene breaks</span>
               <div class="seg" data-key="ornament"><button type="button" data-v="asterism">⁂</button><button type="button" data-v="dinkus">* * *</button><button type="button" data-v="hedera">❦</button><button type="button" data-v="lotus">Lotus</button><button type="button" data-v="rule">Rule</button></div></div>
             <label class="sw">Short lines stand alone as beats<input type="checkbox" data-key="beats"></label>
-          </details>
-
-          <details class="acc">
-            <summary>Light and motion</summary>
+          </section>
+          </div>
+          <div class="dz-panel" id="dz-page" role="tabpanel" aria-labelledby="dzT-page" hidden>
+          <section class="acc"><h3>Page and paper</h3>
+            <div class="field"><span>Line spacing</span>
+              <div class="seg" data-key="leading"><button type="button" data-v="tight">Tight</button><button type="button" data-v="normal">Normal</button><button type="button" data-v="loose">Loose</button></div></div>
+            <label class="sw">Hyphenate words at line ends<input type="checkbox" data-key="hyphens"></label>
+            <div class="field"><span>Paper</span>
+              <div class="seg" data-key="paper"><button type="button" data-v="none">Plain</button><button type="button" data-v="grain">Grain</button><button type="button" data-v="laid">Laid</button><button type="button" data-v="linen">Linen</button></div></div>
+            <div class="field"><span>Cover</span>
+              <div class="seg" data-key="cover"><button type="button" data-v="picture">Picture</button><button type="button" data-v="type">Type only</button><button type="button" data-v="minimal">Minimal</button></div></div>
+            <div class="field"><span>Reading progress</span>
+              <div class="seg" data-key="progress"><button type="button" data-v="time">Time left</button><button type="button" data-v="bar">Bar only</button><button type="button" data-v="none">None</button></div></div>
+          </section>
+          <section class="acc"><h3>Print</h3>
+            <div class="field"><span>Printed page size</span>
+              <div class="seg" data-key="trim"><button type="button" data-v="a5">A5</button><button type="button" data-v="6x9">6 × 9 in</button><button type="button" data-v="a4">A4</button><button type="button" data-v="letter">Letter</button></div></div>
+          </section>
+          <section class="acc"><h3>Readers</h3>
+            <label class="sw">Readers can change the page, light and type for themselves<input type="checkbox" data-key="readerControls"></label>
+          </section>
+          </div>
+          <div class="dz-panel" id="dz-light" role="tabpanel" aria-labelledby="dzT-light" hidden>
+          <section class="acc"><h3>Light and motion</h3>
             <div class="field"><span>Light</span>
               <div class="seg" data-key="light"><button type="button" data-v="off">Off</button><button type="button" data-v="lamp">Lamp</button><button type="button" data-v="candle">Candle</button><button type="button" data-v="focus">Focus</button><button type="button" data-v="story">Story</button></div></div>
             <p class="note" id="mkLightNote"></p>
@@ -347,15 +359,13 @@
             <div class="field"><span>Lines arrive</span>
               <div class="seg" data-key="reveal"><button type="button" data-v="none">Still</button><button type="button" data-v="rise">Rise</button><button type="button" data-v="fade">Fade</button><button type="button" data-v="ink">Ink</button></div></div>
             <label class="sw">Animate pictures as the reader goes<input type="checkbox" data-key="motion"></label>
-          </details>
-
-          <details class="acc">
-            <summary>Picture style</summary>
+          </section>
+          </div>
+          <div class="dz-panel" id="dz-pictures" role="tabpanel" aria-labelledby="dzT-pictures" hidden>
+          <section class="acc"><h3>Picture style</h3>
             <div class="mk-styles" data-key="style" id="mkStyles"></div>
-          </details>
-
-          <details class="acc">
-            <summary>Pictures in the page</summary>
+          </section>
+          <section class="acc"><h3>Pictures in the page</h3>
             <div class="field"><span>How many</span>
               <div class="seg" data-key="density"><button type="button" data-v="few">Few</button><button type="button" data-v="some">Some</button><button type="button" data-v="many">Many</button><button type="button" data-v="every">Every scene</button></div></div>
             <div class="field"><span>Size</span>
@@ -366,26 +376,8 @@
             <div class="field"><span>Captions</span>
               <div class="seg" data-key="captions"><button type="button" data-v="cue">Cue</button><button type="button" data-v="caption">Caption</button><button type="button" data-v="both">Both</button><button type="button" data-v="none">None</button></div>
               <p class="note">Cue underlines the quoted words in the text while their picture is on screen. Print and EPUB keep the printed caption.</p></div>
-          </details>
-
-          <details class="acc">
-            <summary>Page and paper</summary>
-            <div class="field"><span>Line spacing</span>
-              <div class="seg" data-key="leading"><button type="button" data-v="tight">Tight</button><button type="button" data-v="normal">Normal</button><button type="button" data-v="loose">Loose</button></div></div>
-            <label class="sw">Hyphenate words at line ends<input type="checkbox" data-key="hyphens"></label>
-            <div class="field"><span>Paper</span>
-              <div class="seg" data-key="paper"><button type="button" data-v="none">Plain</button><button type="button" data-v="grain">Grain</button><button type="button" data-v="laid">Laid</button><button type="button" data-v="linen">Linen</button></div></div>
-            <div class="field"><span>Cover</span>
-              <div class="seg" data-key="cover"><button type="button" data-v="picture">Picture</button><button type="button" data-v="type">Type only</button><button type="button" data-v="minimal">Minimal</button></div></div>
-            <div class="field"><span>Reading progress</span>
-              <div class="seg" data-key="progress"><button type="button" data-v="time">Time left</button><button type="button" data-v="bar">Bar only</button><button type="button" data-v="none">None</button></div></div>
-          </details>
-
-          <details class="acc">
-            <summary>Readers</summary>
-            <label class="sw">Readers can change the page, light and type for themselves<input type="checkbox" data-key="readerControls"></label>
-          </details>
-          <div class="row"><button class="btn quiet" id="mkResetLook" type="button">Reset to the default look</button></div>
+          </section>
+          </div>
         </div>
       </aside>
     </div>

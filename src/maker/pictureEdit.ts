@@ -22,6 +22,8 @@ export interface EditorOpts {
   large?: () => void;
   /** Mark these words in the book. */
   mark?: (words: string[]) => void;
+  /** Draw the picture again with the text model, from its paragraph in context. */
+  ai?: () => void;
 }
 
 export const SHOT_NAME: Record<string, string> = { wide: "Wide", mid: "Nearer", close: "Close" };
@@ -112,6 +114,10 @@ export function pictureEditor(scene: string, sp: Spec, o: EditorOpts): { el: HTM
   const bare = (t: string) => t.replace(/^(a|an|the) /, "");
   el.innerHTML =
     `<div class="pe-stage"></div>` +
+    // The tools sit on the picture: redraw it with the model, or vary it by rule.
+    `<div class="pe-gen" role="toolbar" aria-label="Draw again">` +
+    (o.ai ? `<button type="button" class="btn primary" data-pe="ai" title="The text model reads this paragraph in its chapter and draws it again">✦ Redraw with AI</button>` : "") +
+    `<button type="button" class="btn" data-pe="vary" title="A new view of the same place">New view</button><button type="button" class="btn" data-pe="shuffle" title="The same view, with the clouds, people and small things moved">New moment</button></div>` +
     `<p class="pe-d">${esc(cap(describe(sp)))}.</p>` +
     `<section class="pe-acts" aria-label="What happens"><header><span>What happens</span>` +
     `<button type="button" class="pe-switch" data-pe="acting" role="switch" aria-checked="${acts.length > 0}">${acts.length ? "Acting" : "Still"}</button></header>` +
@@ -133,8 +139,7 @@ export function pictureEditor(scene: string, sp: Spec, o: EditorOpts): { el: HTM
     `</div>` +
     sel("focus", "In focus", ["-", ...PROPS], sp.props[0] || "-", (v) => v === "-" ? "Nothing in particular" : cap(bare(LABEL.prop[v as Spec["props"][number]]))) +
     `<div class="pe-f"><span>Moving</span><div class="pe-chips" role="group" aria-label="Moving">${FX.map((x) => `<button type="button" data-field="fx" data-v="${x}" aria-pressed="${!!sp.fx?.includes(x)}">${esc(cap(LABEL.fx[x]))}</button>`).join("")}</div></div>` +
-    `</div>` +
-    `<div class="pe-gen"><button type="button" class="btn quiet" data-pe="vary" title="A new view of the same place">New view</button><button type="button" class="btn quiet" data-pe="shuffle" title="The same view, with the clouds, people and small things moved">New moment</button></div>`;
+    `</div>`;
 
   const pl = stage(el.querySelector<HTMLElement>(".pe-stage")!, scene, sp, cap(describe(sp)), { large: o.large, onAct: () => o.mark?.([]) });
   let pending: Spec | null = null;
@@ -148,6 +153,7 @@ export function pictureEditor(scene: string, sp: Spec, o: EditorOpts): { el: HTM
     else if (f === "sky") o.edit((s) => ({ ...s, sky: v as Spec["sky"] }));
     else if (f === "shot") o.edit((s) => ({ ...s, shot: v as Spec["shot"] }));
     else if (f === "fx") o.edit((s) => { const on = s.fx?.includes(v as never); const fx = on ? (s.fx || []).filter((x) => x !== v) : [...(s.fx || []), v as NonNullable<Spec["fx"]>[number]].slice(-3); const n: Spec = { ...s, fx }; if (!fx.length) delete n.fx; return n; });
+    else if (a === "ai") o.ai?.();
     else if (a === "vary") o.edit((s) => ({ ...s, seed: (s.seed + 7919) % 46656 }));
     else if (a === "shuffle") o.edit((s) => ({ ...s, moment: (s.moment + 487) % 1296 }));
     else if (a === "unact") { const n = +b.dataset.n!; o.edit((s) => { const left = (s.acts || []).filter((_, j) => j !== n); const r: Spec = { ...s, acts: left }; if (!left.length) delete r.acts; return r; }); }

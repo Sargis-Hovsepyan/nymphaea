@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseText } from "../src/parse";
 import { SEED_SCENES, sampleBook } from "../src/sample";
 import { autoStage } from "../src/stage/auto";
-import { buildStagingPrompt, readStagingReply } from "../src/stage/claude";
+import { buildRedrawPrompt, buildStagingPrompt, readStagingReply } from "../src/stage/claude";
 import { captionIsQuoted, guardScenes, sameBlocks } from "../src/stage/guard";
 import type { Density } from "../src/types";
 
@@ -88,6 +88,17 @@ describe("Claude staging contract", () => {
     expect(cut).toBe(false);
     expect(prompt).toContain("[0] " + book.blocks[0].text);
     expect(prompt).toContain("- lotus:");
+  });
+
+  it("redraws one picture from its paragraph read in context", () => {
+    const at = book.blocks.findIndex((b, i) => i > 3 && b.type === "p");
+    const p = buildRedrawPrompt(book, { after: at, scene: "lamp", caption: "x" });
+    expect(p).toContain("The passage:\n" + book.blocks[at].text);
+    expect(p).toContain("Before:\n");
+    expect(p).toContain("\"acts\"");
+    const r = readStagingReply(book, { scenes: [{ after: at, compose: { place: "room", time: "night", figures: 1, acts: [{ who: 0, do: "sit" }] }, caption: "not in the text" }] });
+    expect(r.scenes).toHaveLength(1);
+    expect(r.scenes[0].scene.startsWith("gen:")).toBe(true);
   });
 
   it("follows the pictures-from choice and a small request budget", () => {

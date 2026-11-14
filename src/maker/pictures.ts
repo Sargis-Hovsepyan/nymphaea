@@ -17,7 +17,7 @@ import { $, book, clearWarn, commitScenes, hasText, hooks, narrow, painting, pke
 import { thumb } from "./studio";
 import { checkpoint, UNDO } from "./undo";
 import { setPane, toast } from "./ui";
-import { stageWithAi } from "./staging";
+import { redrawWithAi, stageOrConnect } from "./staging";
 import { noteRemoved, renderRemoved } from "./removed";
 import { cap, clip } from "../text/strings";
 
@@ -134,6 +134,7 @@ function cardBody(s: SceneRef, k: number): HTMLElement {
       reread: () => decode(composeFor(s.after, s.quote)),
       large: () => hooks.openLarge(k),
       mark: () => sess.preview.send({ type: "scroll", block: s.after, picture: true }),
+      ai: () => void redrawWithAi(k),
     });
     editors.push(ed.stop);
     body.appendChild(ed.el);
@@ -336,7 +337,7 @@ export function initScenes(): void {
     if (had) toast("Placed " + plural(B.scenes.length, "picture") + " automatically.", false, UNDO);
   });
   $("mkClear").addEventListener("click", () => { checkpoint(); commitScenes([]); toast("Removed every picture. The text reads on its own.", false, UNDO); });
-  $("mkAsk").addEventListener("click", stageWithAi);
+  $("mkAsk").addEventListener("click", stageOrConnect);
   $("mkStop").addEventListener("click", stopAll);
   $("mkPaintAll").addEventListener("click", () => { paintAll().catch(() => {}); });
   $("mkAiOpen").addEventListener("click", openAi);

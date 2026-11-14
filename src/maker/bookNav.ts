@@ -14,6 +14,7 @@ import { pictureEditor, stage } from "./pictureEdit";
 import { canMove } from "./pictureMove";
 import { sceneLabel } from "../compose";
 import { checkpoint } from "./undo";
+import { redrawWithAi } from "./staging";
 import { $, book, commitScenes, hooks, narrow, plural, sess } from "./session";
 import { setPane } from "./ui";
 import { setView } from "./views";
@@ -137,6 +138,7 @@ export function inspect(k: number): void {
       reread: () => decode(composeFor(s.after, s.quote)),
       large: () => hooks.openLarge(k),
       mark: () => sess.preview.send({ type: "mark", block: s.after, words: named.act }),
+      ai: () => { keepInsp = true; void redrawWithAi(k).then(() => { if (inspK === k) inspect(k); }); },
     });
     host.appendChild(ed.el); stopEd = ed.stop;
   } else {

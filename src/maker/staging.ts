@@ -4,15 +4,46 @@
 import { explain } from "../ai/config";
 import { askJson } from "../ai/text";
 import { decode } from "../compose/spec";
-import { buildStagingPrompt, readStagingReply } from "../stage/claude";
+import { buildRedrawPrompt, buildStagingPrompt, readStagingReply } from "../stage/claude";
 import { sameBlocks } from "../stage/guard";
 import { state } from "../state";
-import { aiConfig, textReady } from "./ai";
+import { aiConfig, openAi, textReady } from "./ai";
 import { progress } from "./paint";
 import { $, book, hooks, jobs, plural, sceneNote, sess, syncStop } from "./session";
 import { checkpoint, UNDO } from "./undo";
 import { syncAi } from "./aiState";
 import { toast } from "./ui";
+
+/** Picture k drawn again by the text model, from its paragraph read in context. Undoable; the Guard checks it. */
+export async function redrawWithAi(k: number): Promise<void> {
+  const c = aiConfig();
+  if (!textReady(c)) { toast("Connect a text model to redraw pictures with AI."); openAi(); return; }
+  const B = book(), s = B.scenes[k];
+  if (!s || jobs.staging) return;
+  const ctl = jobs.staging = new AbortController(); syncStop();
+  const prog = progress("The text model is reading picture " + (k + 1));
+  try {
+    const raw = await askJson(c.text, buildRedrawPrompt(B, s), ctl.signal) as Record<string, unknown>;
+    const cur = book();
+    if (!sameBlocks(cur.blocks, B.blocks) || cur.scenes[k] !== s) { toast("The book changed while the model was reading, so its picture was set aside."); return; }
+    const [r] = readStagingReply(cur, { scenes: [{ ...raw, after: s.after }] }).scenes;
+    if (!r || !decode(r.scene)) { toast("The model’s answer couldn’t be drawn. Try again.", true); return; }
+    checkpoint();
+    s.scene = r.scene; s.caption = r.caption; delete s.img; delete s.prompt;
+    hooks.refresh();
+    toast("Picture " + (k + 1) + " redrawn.", false, UNDO);
+  } catch (e) {
+    toast(e && (e as Error).name === "AbortError" ? "Stopped." : explain(e, "the text model"), true);
+  } finally {
+    prog.end(); jobs.staging = null; syncStop(); syncAi();
+  }
+}
+
+/** Stage the whole book with the connected model, or open the AI models sheet when there is none. */
+export function stageOrConnect(): void {
+  if (textReady(aiConfig()) || sess.sample) void stageWithAi();
+  else { toast("Connect a text model to stage the pictures with AI."); openAi(); }
+}
 
 export async function stageWithAi(): Promise<void> {
   const c = aiConfig(), useApi = textReady(c);

@@ -17,7 +17,7 @@ export const DEFAULTS: Settings = {
   theme: "parchment",
   mode: "light",
   light: "off",
-  follow: true,
+  follow: false,
   flicker: true,
   pairing: "literary",
   fontSize: 19,

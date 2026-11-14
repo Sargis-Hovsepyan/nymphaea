@@ -7,8 +7,8 @@ import { $, book, hasText, jobs, sess } from "./session";
 export function syncAi(): void {
   const c: AiConfig = aiConfig(), t = textReady(c), im = imageReady(c), ok = hasText();
   const ask = $<HTMLButtonElement>("mkAsk");
-  ask.hidden = !(t || sess.sample);
-  ask.textContent = t ? "Stage with AI" : "Let Claude stage it";
+  // Always at hand: with no model connected it opens the AI models sheet.
+  ask.textContent = !t && sess.sample ? "✦ Let Claude stage it" : "✦ Stage with AI";
   ask.disabled = !ok || !!jobs.staging;
   $("mkPaintAll").hidden = !im;
   $<HTMLButtonElement>("mkPaintAll").disabled = !ok || !!jobs.paintAll || !book().scenes.length;

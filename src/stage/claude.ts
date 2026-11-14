@@ -16,6 +16,33 @@ const ART_RULE: Record<Art, string> = {
   composed: "- Compose every picture, with its acts.\n",
 };
 
+// The closed vocabulary a composed scene and its acts are written in, shared by both prompts.
+const COMPOSE_RULES = "A composed scene is \"compose\": {\"place\", \"time\", \"weather\", \"season\", \"props\", \"figures\", \"pose\", \"shot\", \"motion\", \"acts\"} using only these words:"
+  + " place " + PLACES.join("|") + "; time " + TIMES.join("|") + "; weather " + SKIES.join("|") + "; season " + SEASONS.join("|") + "; props (up to 4, the first is the focus of a close shot) " + PROPS.join("|") + "; figures 0-3; pose " + POSES.join("|") + "; shot " + SHOTS.join("|") + "; motion (up to 3, only what the passage says moves) " + FX.join("|") + "."
+  + " \"acts\" says what happens, in order (up to 6, only what the words say happens now): each {\"who\", \"do\", \"to\", \"how\", \"with\", \"away\"}."
+  + " who: a figure number (0, 1, 2), \"all\", \"pair\" (figures 0 and 1 together), a prop from the scene's props, or \"sky\"."
+  + " do for a figure: " + FIG_KINDS.join("|") + "; for the pair: " + PAIR_KINDS.join("|") + "; for a prop: " + THING_KINDS.join("|") + "; for the sky: " + SKY_KINDS.join("|") + "."
+  + " to (optional): a figure number, a prop from the scene's props, \"up\", \"down\", \"off\". how: \"slow\" or \"sudden\". with: true when it starts together with the act before. away: true for away from \"to\", or for weather that stops.";
+
+/**
+ * One picture, drawn again by a model that reads its paragraph in context: the chapter it is in, the
+ * paragraphs before (the setting carries over) and the one after. The reply is one composed scene.
+ */
+export function buildRedrawPrompt(book: Book, s: SceneRef): string {
+  const at = s.after;
+  let head = "";
+  for (let i = at; i >= 0; i--) { const b = book.blocks[i]; if (b && b.type === "h") { head = b.text; break; } }
+  const near = (from: number, to: number) => book.blocks.slice(Math.max(0, from), to).filter((b) => b.type === "p").map((b) => b.text.slice(0, 600)).join("\n");
+  return "You are drawing one small animated illustration for a passage of a book. Read the context so the place, hour, weather and people carry over, but show what happens in the passage itself.\n"
+    + COMPOSE_RULES + "\n"
+    + "- \"caption\" is 2 to 7 words quoted exactly from the passage.\n"
+    + "Reply with only JSON like {\"compose\":{\"place\":\"sea\",\"time\":\"dusk\",\"weather\":\"wind\",\"props\":[\"boat\"],\"figures\":1,\"pose\":\"look\",\"shot\":\"wide\",\"acts\":[{\"who\":\"sky\",\"do\":\"wind\"},{\"who\":0,\"do\":\"look\",\"to\":\"boat\",\"with\":true}]},\"caption\":\"the boat leaned into the wind\"}\n\n"
+    + "Book: " + book.title + (head ? "\nChapter: " + head : "")
+    + "\n\nBefore:\n" + (near(at - 3, at) || "(the start)")
+    + "\n\nThe passage:\n" + (s.quote || book.blocks[at]?.text || "")
+    + "\n\nAfter:\n" + (near(at + 1, at + 2) || "(the end)");
+}
+
 /** `budget` caps the characters of text sent, for models with a small request limit. */
 export function buildStagingPrompt(book: Book, density: Density, art: Art = "mixed", budget = 180000): { prompt: string; cut: boolean } {
   const ps: string[] = [];
@@ -39,12 +66,7 @@ export function buildStagingPrompt(book: Book, density: Density, art: Art = "mix
     + "\n\nRules:\n- Place about " + k + " illustrations, spread through the text, each right after the paragraph it belongs to (\"after\" is that paragraph's number).\n"
     + "- Pick the scene that best fits the moment; avoid the same scene twice in a row unless the story clearly returns to it.\n"
     + ART_RULE[art]
-    + "- When no listed scene fits, compose one instead of \"scene\": give \"compose\": {\"place\", \"time\", \"weather\", \"season\", \"props\", \"figures\", \"pose\", \"shot\", \"motion\"} using only these words:"
-    + " place " + PLACES.join("|") + "; time " + TIMES.join("|") + "; weather " + SKIES.join("|") + "; season " + SEASONS.join("|") + "; props (up to 4, the first is the focus of a close shot) " + PROPS.join("|") + "; figures 0-3; pose " + POSES.join("|") + "; shot " + SHOTS.join("|") + "; motion (up to 3, only what the passage says moves) " + FX.join("|") + ". Vary the shot when two pictures in a row share a place.\n"
-    + "- A composed scene may also say what happens, in order, as \"acts\" (up to 6, only what the words say happens now): each {\"who\", \"do\", \"to\", \"how\", \"with\", \"away\"}."
-    + " who: a figure number (0, 1, 2), \"all\", \"pair\" (figures 0 and 1 together), a prop from the scene's props, or \"sky\"."
-    + " do for a figure: " + FIG_KINDS.join("|") + "; for the pair: " + PAIR_KINDS.join("|") + "; for a prop: " + THING_KINDS.join("|") + "; for the sky: " + SKY_KINDS.join("|") + "."
-    + " to (optional): a figure number, a prop from the scene's props, \"up\", \"down\", \"off\". how: \"slow\" or \"sudden\". with: true when it starts together with the act before. away: true for away from \"to\", or for weather that stops.\n"
+    + "- When no listed scene fits, compose one instead of \"scene\". " + COMPOSE_RULES + " Vary the shot when two pictures in a row share a place.\n"
     + "- \"caption\" is 2 to 7 words quoted exactly from that paragraph.\n"
     + "- \"quote\" (optional) is the one or two sentences, quoted exactly from that paragraph or the one before, that the picture shows. Pick the moment, not the whole paragraph.\n"
     + "- \"beats\" lists the numbers of short paragraphs that are dramatic one-line beats and should stand alone on the page.\n"
