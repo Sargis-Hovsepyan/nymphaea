@@ -7,7 +7,7 @@ import { buildStagingPrompt, readStagingReply } from "../src/stage/claude";
 import { captionIsQuoted, guardScenes, sameBlocks } from "../src/stage/guard";
 import type { Density } from "../src/types";
 
-const EPISODE = readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
+const EPISODE = readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
 const DENSITIES: Density[] = ["few", "some", "many"];
 
 describe("autoStage", () => {
@@ -88,6 +88,16 @@ describe("Claude staging contract", () => {
     expect(cut).toBe(false);
     expect(prompt).toContain("[0] " + book.blocks[0].text);
     expect(prompt).toContain("- lotus:");
+  });
+
+  it("follows the pictures-from choice and a small request budget", () => {
+    const composed = buildStagingPrompt(book, "some", "composed").prompt;
+    expect(composed).toContain("Compose every picture");
+    expect(composed).not.toContain("- lotus:");
+    expect(buildStagingPrompt(book, "some", "library").prompt).toContain("Use the listed scene ids");
+    const small = buildStagingPrompt(book, "some", "mixed", 2000);
+    expect(small.cut).toBe(true);
+    expect(small.prompt.length).toBeLessThan(buildStagingPrompt(book, "some").prompt.length);
   });
 
   it("turns any reply into a guarded plan", () => {

@@ -105,7 +105,7 @@ npm run seal-key   # asks for the Groq key and a password (nothing is echoed), w
 npm run build      # then commit and push
 ```
 
-Then in **AI models**, type the password into **Owner password** and press **Use the built-in Groq key**. The key is unlocked in that browser only and saved like a key typed in by hand. The locked key is in the public page, so its safety is the password's: use a long passphrase of a few random words, never a short word. To change the key or the password, run `npm run seal-key` again. To remove it, set `SEALED_GROQ` back to `""`.
+Then in **AI models**, type the password into **Owner password** and press **Use the built-in Groq key**. The key is unlocked in that browser only and saved like a key typed in by hand. The locked key is in the public page, so its safety is the password's: use a long passphrase of a few random words, never a short word. Groq runs `openai/gpt-oss-120b`, the strongest model on its free tier and also the one that uses the fewest tokens per staging (about 4,000). The free tier allows 1,000 requests a day and 8,000 tokens a minute, so about one staging a minute, and on Groq the Studio reads the first 16,000 characters or so of a long text. For pictures that act out the sentence, set **Pictures from** to **Read from the text**: the model then composes every picture and says what happens in it. To change the key or the password, run `npm run seal-key` again. To remove it, set `SEALED_GROQ` back to `""`.
 
 ## Pictures
 
@@ -173,7 +173,4 @@ CI (`.github/workflows/ci.yml`) runs on every push and pull request with Node 22
   - `layout/`, `ui/`: paged spreads, print, and the reader.
   - `vscenes/`, `scenes/`, `renderers/`: the pictures and their styles. `renderers/player.ts` plays one picture (play, pause, replay, scrub) wherever the Studio shows one.
   - `export.ts`, `epub/`: the HTML and EPUB books.
-- `tests/`: the guarantees, starting with "every paragraph survives".
-- `episodes/`: the story, one Markdown file per episode.
-- `docs/roadmap.md`: the platform plan.
-- `docs/research.md`: the evidence behind the design.
+- `tests/`: the guarantees, starting with "every paragraph survives". `tests/support/` holds the sample story and the reading sets.

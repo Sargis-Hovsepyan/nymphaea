@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { blocksToText, parseText } from "../src/parse";
 import { SEED_TEXT } from "../src/seed";
 
-const EPISODE = readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
+const EPISODE = readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
 
 /** What a reader of the source file sees as paragraphs (whitespace inside a paragraph normalised). */
 function sourceParagraphs(md: string): string[] {

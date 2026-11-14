@@ -117,7 +117,7 @@ describe("every composed scene draws cleanly", () => {
 });
 
 describe("staging with composed scenes", () => {
-  const EPISODE = readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
+  const EPISODE = readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
   const { blocks } = parseText(EPISODE);
 
   it("composed mode gives every picture a composed scene with a quoted caption", () => {

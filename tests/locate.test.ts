@@ -66,7 +66,7 @@ describe("locate", () => {
     expect(shown("had *already*\nstarted")).toBe("had already started");
   });
   it("every hit in a real episode is a quote of the text", () => {
-    const md = readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
+    const md = readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
     const blocks = parseText(md).blocks;
     const prose = blocks.map((b, i) => ({ b, i })).filter(({ b }) => b.type === "p" && b.text.split(" ").length > 12).slice(0, 25);
     prose.forEach(({ b, i }) => {

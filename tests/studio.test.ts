@@ -12,7 +12,7 @@ import { captionIsQuoted } from "../src/stage/guard";
 import { remapBeats, remapScenes } from "../src/stage/remap";
 import type { Book } from "../src/types";
 
-const EPISODE = readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
+const EPISODE = readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
 
 describe("inline Markdown", () => {
   it("reads *em*, _em_ and **strong** without touching the text", () => {

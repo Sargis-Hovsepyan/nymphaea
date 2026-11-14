@@ -96,7 +96,7 @@ describe("moments and captions", () => {
     expect(captionOf("She sat down.", "lamp")).toBe("She sat down.");
   });
   it("automatic composed pictures carry their moment, and it is an exact quote", () => {
-    const ep = parseText(readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8")).blocks;
+    const ep = parseText(readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8")).blocks;
     const scenes = autoStage(ep, "many", "composed");
     const withQ = scenes.filter((s) => s.quote);
     expect(withQ.length).toBeGreaterThan(0);
@@ -130,7 +130,7 @@ describe("the drawing follows the words", () => {
     layout(sp).items.filter((x) => x.kind === "fig").forEach((f) => expect(f.on).toBe("bench"));
   });
   it("neighbouring automatic pictures never repeat the same view", () => {
-    const ep = parseText(readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8")).blocks;
+    const ep = parseText(readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8")).blocks;
     const sc = autoStage(ep, "many", "composed").map((x) => decode(x.scene)).filter((x): x is NonNullable<typeof x> => !!x);
     for (let i = 1; i < sc.length; i++) {
       const a = sc[i - 1], b = sc[i];

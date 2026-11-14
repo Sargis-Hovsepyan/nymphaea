@@ -5,12 +5,20 @@ import { encode, fromLoose, FX, PLACES, POSES, PROPS, SEASONS, SHOTS, SKIES, TIM
 import { FIG_KINDS, PAIR_KINDS, SKY_KINDS, THING_KINDS } from "../compose/acts";
 import { hash } from "./mood";
 import { DENS } from "../settings";
-import type { Book, Density, SceneRef } from "../types";
+import type { Art, Book, Density, SceneRef } from "../types";
 import { guardBeats, guardScenes } from "./guard";
 import { SCENE_DESC, SCENE_LIST, isScene, words } from "./keywords";
 
-export function buildStagingPrompt(book: Book, density: Density): { prompt: string; cut: boolean } {
-  const ps: string[] = [], budget = 180000;
+// How the author's "pictures from" choice steers the model between drawn scenes and composed ones.
+const ART_RULE: Record<Art, string> = {
+  library: "- Use the listed scene ids; compose a scene only when none of them fits at all.\n",
+  mixed: "- Prefer composing a scene, with its acts, whenever the passage names a place or something happening, so the picture acts out this very moment. Use a listed scene id only when it fits the passage clearly.\n",
+  composed: "- Compose every picture, with its acts; do not use the listed scene ids.\n",
+};
+
+/** `budget` caps the characters of text sent, for models with a small request limit. */
+export function buildStagingPrompt(book: Book, density: Density, art: Art = "mixed", budget = 180000): { prompt: string; cut: boolean } {
+  const ps: string[] = [];
   let used = 0, cut = false;
   book.blocks.forEach((b, i) => {
     if (b.type !== "p" || cut) return;
@@ -21,11 +29,16 @@ export function buildStagingPrompt(book: Book, density: Density): { prompt: stri
   });
   const w = book.blocks.reduce((a, b) => a + words(b.text).length, 0);
   const k = Math.max(2, Math.round(w / (DENS[density] || 450)));
+  const lib = art !== "composed"; // "Read from the text" hides the drawn library, or models reach for it anyway
+  const example = (lib ? "{\"after\":12,\"scene\":\"knight\",\"caption\":\"I captured his knight\"}," : "")
+    + "{\"after\":30,\"compose\":{\"place\":\"sea\",\"time\":\"dusk\",\"weather\":\"wind\",\"props\":[\"boat\",\"bird\"],\"figures\":1,\"pose\":\"look\",\"shot\":\"wide\","
+    + "\"acts\":[{\"who\":\"sky\",\"do\":\"wind\"},{\"who\":0,\"do\":\"look\",\"to\":\"boat\",\"with\":true}]},\"caption\":\"the boat leaned into the wind\"}";
   const prompt = "You are staging a piece of writing for an illustrated reading page. The paragraphs are numbered below.\n"
-    + "Choose where small animated illustrations go and which scene each one shows. Available scenes (use these ids only):\n"
-    + SCENE_LIST.map((s) => "- " + s + ": " + SCENE_DESC[s]).join("\n")
+    + (lib ? "Choose where small animated illustrations go and which scene each one shows. Available scenes (use these ids only):\n"
+      + SCENE_LIST.map((s) => "- " + s + ": " + SCENE_DESC[s]).join("\n") : "Choose where small animated illustrations go and compose what each one shows.")
     + "\n\nRules:\n- Place about " + k + " illustrations, spread through the text, each right after the paragraph it belongs to (\"after\" is that paragraph's number).\n"
     + "- Pick the scene that best fits the moment; avoid the same scene twice in a row unless the story clearly returns to it.\n"
+    + ART_RULE[art]
     + "- When no listed scene fits, compose one instead of \"scene\": give \"compose\": {\"place\", \"time\", \"weather\", \"season\", \"props\", \"figures\", \"pose\", \"shot\", \"motion\"} using only these words:"
     + " place " + PLACES.join("|") + "; time " + TIMES.join("|") + "; weather " + SKIES.join("|") + "; season " + SEASONS.join("|") + "; props (up to 4, the first is the focus of a close shot) " + PROPS.join("|") + "; figures 0-3; pose " + POSES.join("|") + "; shot " + SHOTS.join("|") + "; motion (up to 3, only what the passage says moves) " + FX.join("|") + ". Vary the shot when two pictures in a row share a place.\n"
     + "- A composed scene may also say what happens, in order, as \"acts\" (up to 6, only what the words say happens now): each {\"who\", \"do\", \"to\", \"how\", \"with\", \"away\"}."
@@ -36,7 +49,7 @@ export function buildStagingPrompt(book: Book, density: Density): { prompt: stri
     + "- \"quote\" (optional) is the one or two sentences, quoted exactly from that paragraph or the one before, that the picture shows. Pick the moment, not the whole paragraph.\n"
     + "- \"beats\" lists the numbers of short paragraphs that are dramatic one-line beats and should stand alone on the page.\n"
     + "- \"cover\" is the scene id that best represents the whole piece.\n"
-    + "Reply with only JSON like {\"cover\":\"lamp\",\"scenes\":[{\"after\":12,\"scene\":\"knight\",\"caption\":\"I captured his knight\"},{\"after\":30,\"compose\":{\"place\":\"sea\",\"time\":\"dusk\",\"weather\":\"wind\",\"props\":[\"boat\",\"bird\"],\"figures\":1,\"pose\":\"look\",\"shot\":\"wide\"},\"caption\":\"the boat leaned into the wind\"}],\"beats\":[38,64]}\n\n"
+    + "Reply with only JSON like {" + (lib ? "\"cover\":\"lamp\"," : "") + "\"scenes\":[" + example + "],\"beats\":[38,64]}\n\n"
     + "Title: " + book.title + "\n\nParagraphs:\n" + ps.join("\n");
   return { prompt, cut };
 }

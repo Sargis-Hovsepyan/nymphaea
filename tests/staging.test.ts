@@ -13,7 +13,7 @@ import { segment } from "../src/stage/segment";
 import { docModel, idf, stem } from "../src/stage/stem";
 import type { Block } from "../src/types";
 
-const EPISODE = readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
+const EPISODE = readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
 const P = (text: string): Block => ({ type: "p", text });
 
 describe("stems and weights", () => {

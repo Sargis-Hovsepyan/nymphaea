@@ -16,7 +16,7 @@ import { DEFAULTS } from "../src/settings";
 import { applyFix, findIssues } from "../src/text/check";
 import { crc32, text, unzip, utf8, zipStore } from "../src/zip";
 
-const EPISODE = readFileSync(new URL("../episodes/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
+const EPISODE = readFileSync(new URL("./support/01-the-lesson-i-refused-to-learn.md", import.meta.url), "utf8");
 
 describe("richer Markdown", () => {
   const md = [

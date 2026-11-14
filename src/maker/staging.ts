@@ -17,7 +17,9 @@ import { toast } from "./ui";
 export async function stageWithAi(): Promise<void> {
   const c = aiConfig(), useApi = textReady(c);
   if (!useApi && !sess.sample) return;
-  const B = book(), { prompt, cut } = buildStagingPrompt(B, state.settings.density);
+  // shortcut: Groq's free tier allows 8000 tokens a minute, so it reads ~16k characters (the opening of a long book); lift on a paid tier.
+  const budget = useApi && /api\.groq\.com/.test(c.text.url) ? 16000 : undefined;
+  const B = book(), { prompt, cut } = buildStagingPrompt(B, state.settings.density, state.settings.art, budget);
   const who = useApi ? "the text model" : "Claude", Who = who[0].toUpperCase() + who.slice(1);
   const ctl = jobs.staging = new AbortController();
   $<HTMLButtonElement>("mkAsk").disabled = true; syncStop();
