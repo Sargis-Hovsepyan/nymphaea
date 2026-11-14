@@ -1,6 +1,6 @@
-// Finding your way around the book in the Studio: the chapter list in the left panel, the thumb
-// index down the fore edge of the live book (one tab per chapter, as tall as the chapter is long,
-// with a mark for every picture), and the picture inspector that shows which words drove a picture.
+// Finding your way around the book in the Studio: the thumb index down the fore edge of the live book
+// (one tab per chapter, as tall as the chapter is long, with a mark for every picture), and the panel
+// on the right for the open picture, which also shows which words drove it.
 // Display only: nothing here changes the author's words.
 import { namedWords, QUOTE_WINDOW, readQuoteAt, trackSpecs, type Named } from "../compose/read";
 import { shown } from "../stage/locate";
@@ -9,16 +9,13 @@ import { decode, type Spec } from "../compose/spec";
 import { plain } from "../inline";
 import { words } from "../stage/keywords";
 import type { Block } from "../types";
-import { composeFor, editSpec, moveCard, openCard, pNumber, removePicture } from "./pictures";
-import { pictureEditor, stage } from "./pictureEdit";
-import { canMove } from "./pictureMove";
+import { cardBody, composeFor, deselect, follow, openCard, pNumber, stopEditors } from "./pictures";
+import { stage } from "./pictureEdit";
 import { sceneLabel } from "../compose";
 import { checkpoint } from "./undo";
-import { redrawWithAi } from "./staging";
-import { $, book, commitScenes, hooks, narrow, plural, sess } from "./session";
-import { setPane } from "./ui";
+import { $, book, commitScenes, hooks, plural, sess } from "./session";
 import { setView } from "./views";
-import { clip, esc } from "../text/strings";
+import { esc } from "../text/strings";
 
 export interface Chapter { title: string; start: number; end: number; words: number; pics: number[] }
 
@@ -41,7 +38,7 @@ export function chaptersOf(blocks: Block[], scenes: { after: number }[]): Chapte
   });
 }
 
-let chs: Chapter[] = [], whereBlock = -1, lastSig = "", keepInsp = false;
+let chs: Chapter[] = [], whereBlock = -1;
 
 function goBlock(i: number, picture = false): void {
   setView("book");
@@ -57,19 +54,10 @@ function within(c: Chapter, i: number, blocks: Block[]): number {
 export function renderNav(): void {
   const B = book();
   chs = chaptersOf(B.blocks, B.scenes);
-  // The inspector points at a picture by number: close it when the pictures change under it.
-  const sig = B.scenes.map((x) => x.after + "|" + x.scene).join(",");
-  if (sig !== lastSig) { if (lastSig && inspK >= 0 && !keepInsp) closeInspector(); lastSig = sig; }
-  keepInsp = false;
   const total = B.blocks.reduce((a, b) => a + words(b.text).length, 0);
   const named = B.blocks.some((b) => b.type === "h") ? chs.length : 0;
-  $("mkCounts").textContent = total ? plural(total, "word") + (named ? " · " + plural(named, "chapter") : "") + " · " + plural(B.scenes.length, "picture") : "";
-  $("mkChCount").textContent = String(chs.length);
+  $("mkCounts").textContent = total ? plural(total, "word") + (named ? ", " + plural(named, "chapter") : "") + ", " + plural(B.scenes.length, "picture") : "";
   $("mkPicCount").textContent = B.scenes.length ? String(B.scenes.length) : "";
-
-  // Chapter list: number, title, one pip per picture.
-  $("mkChapters").innerHTML = chs.map((c, k) =>
-    `<li><button type="button" data-k="${k}" aria-label="${esc(c.title)}, ${plural(c.pics.length, "picture")}"><i>${ROMAN[k] || k + 1}</i><span>${esc(c.title)}</span><b class="pips" aria-hidden="true">${c.pics.slice(0, 8).map(() => "<u></u>").join("")}${c.pics.length > 8 ? "+" : ""}</b></button></li>`).join("");
 
   // Thumb index: tabs as tall as their chapters, a mark per picture.
   const minW = Math.max(1, total * 0.04);
@@ -82,7 +70,6 @@ export function renderNav(): void {
 function markWhere(): void {
   const k = whereBlock < 0 ? 0 : chs.findIndex((c) => whereBlock >= c.start && whereBlock <= c.end);
   $("mkThumb").querySelectorAll(".tb").forEach((t) => t.classList.toggle("on", +(t as HTMLElement).dataset.k! === k));
-  $("mkChapters").querySelectorAll("button").forEach((b) => b.setAttribute("aria-current", String(+b.dataset.k! === k)));
 }
 
 /** The preview says which paragraph is at the reading line. */
@@ -90,23 +77,35 @@ export function onWhere(block: number): void { whereBlock = block; markWhere(); 
 /** The paragraph at the reading line of the Book view (-1 before the text starts). */
 export const readingBlock = (): number => whereBlock;
 
-/* ---------------- the picture inspector ---------------- */
-let inspK = -1;
+/* ---------------- the open picture, on the right ---------------- */
+let inspK = -1, lastSig = "";
 const PRONOUNS = new Set(["i", "me", "my", "he", "him", "his", "she", "her", "hers", "we", "us", "our", "they", "them", "their", "you", "your", "it"]);
+let stopLib: (() => void) | null = null;
+const stopInsp = () => { stopEditors(); stopLib?.(); stopLib = null; };
 
 export function closeInspector(): void {
-  if (inspK < 0) return;
-  inspK = -1; $("mkInsp").hidden = true; stopInsp();
+  const box = $("mkInsp");
+  if (inspK < 0 && box.hidden) return;
+  inspK = -1; lastSig = ""; box.hidden = true; delete box.dataset.k; stopInsp();
+  $("mkWork").dataset.insp = "closed";
   sess.preview.send({ type: "mark", block: -1, words: [] });
   if (!$("mkWords").hidden) return;
   sess.preview.send({ type: "span", from: 0, to: 0, text: "" });
 }
 
-/** Open the inspector for picture k: the picture playing, what the text named, and the same editor as its card. */
-export function inspect(k: number): void {
-  const B = book(), s = B.scenes[k];
-  if (!s || narrow()) return;
-  inspK = k;
+/**
+ * Show picture k on the right: the picture playing with its tools, its caption and words, and what the
+ * text named. Drawn again only when `sig` changes, so typing in the text doesn't restart the picture.
+ */
+export function inspect(k: number, sig = ""): void {
+  const B = book(), s = B.scenes[k], box = $("mkInsp");
+  if (!s) return;
+  if (sig && sig === lastSig && inspK === k && !box.hidden) return;
+  // Keep the keyboard and the scroll where they were through the redraw.
+  const ae = document.activeElement as HTMLElement | null, inside = !!ae && box.contains(ae);
+  const keep = inside && ae && !/^(INPUT|TEXTAREA)$/.test(ae.tagName) ? ["f", "pe", "field", "v", "a"].map((a) => ae.dataset[a] ? `[data-${a}="${ae.dataset[a]}"]` : "").join("") : "";
+  const scroll = box.querySelector(".in-body")?.scrollTop || 0;
+  inspK = k; lastSig = sig;
   stopInsp();
   const sp = decode(s.scene);
   let rd: Spec | null = sp;
@@ -115,75 +114,52 @@ export function inspect(k: number): void {
   const nw = namedWords(plain(passage));
   // Pronouns count people for the drawing but make poor evidence to show.
   nw.people = nw.people.filter((w) => !PRONOUNS.has(w.toLowerCase()));
-  // The staged reading (place, hour, weather, season, things, figures, motion, acts), each with the words that named it.
   const rq = s.quote && sp ? readQuoteAt(B.blocks, s.after, s.quote) : null;
   const named = rq ? rq.named.words : nw;
-  const list = rq ? rowsOfReading(rq) : rd ? rowsOf(rd, nw) : [];
-  const rows = rowsHtml(list, 3);
-  const box = $("mkInsp");
-  const mv = canMove(B.blocks, s);
-  box.innerHTML = `<header><b>Picture ${k + 1}</b><span>Paragraph ${pNumber(s.after)}</span><button type="button" class="mk-icon" data-a="close" aria-label="Close"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>` +
-    `<div class="in-body">` +
-    (s.quote ? `<blockquote class="in-q">${esc(clip(shown(s.quote), 180))}</blockquote>` : "") +
-    `<div class="in-ed"></div>` +
-    (rows ? `<details class="in-why"><summary>What the words named</summary><dl class="in-f layered">${rows}</dl></details>` : "") +
-    `<div class="in-acts">${sp ? "" : `<button type="button" class="btn primary" data-a="compose" title="Draw this picture from what the passage says">Compose from the text</button>`}` +
-    `<button type="button" class="btn" data-a="words" title="Select the words in the book this picture should show">${s.quote ? "Other words" : "Choose words"}</button>` +
-    `<button type="button" class="btn quiet" data-a="up"${mv.up ? "" : " disabled"} title="Move up one paragraph">Up</button><button type="button" class="btn quiet" data-a="down"${mv.down ? "" : " disabled"} title="Move down one paragraph">Down</button>` +
-    `<button type="button" class="btn quiet" data-a="remove">Remove</button><button type="button" class="btn quiet" data-a="card">In the list</button></div></div>`;
-  const host = box.querySelector<HTMLElement>(".in-ed")!;
-  if (sp) {
-    const ed = pictureEditor(s.scene, sp, {
-      edit: (fn) => { keepInsp = true; editSpec(k, fn); inspect(k); },
-      reread: () => decode(composeFor(s.after, s.quote)),
-      large: () => hooks.openLarge(k),
-      mark: () => sess.preview.send({ type: "mark", block: s.after, words: named.act }),
-      ai: () => { keepInsp = true; void redrawWithAi(k).then(() => { if (inspK === k) inspect(k); }); },
-    });
-    host.appendChild(ed.el); stopEd = ed.stop;
-  } else {
-    stopEd = stage(host, s.scene, null, sceneLabel(s.scene), { large: () => hooks.openLarge(k) }).stop;
-  }
+  const rows = rowsHtml(rq ? rowsOfReading(rq) : rd ? rowsOf(rd, nw) : [], 3);
+  box.dataset.k = String(k);
+  box.innerHTML = `<header><b>Picture ${k + 1}</b><span>Paragraph ${pNumber(s.after)}</span><button type="button" class="mk-icon" data-a="close" aria-label="Close the picture"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>` +
+    `<div class="in-body"><div class="in-lib"></div>` +
+    (sp ? "" : `<div class="in-acts"><button type="button" class="btn primary" data-a="compose" title="Draw this picture from what the passage says, so it can act it out">Compose from the text</button></div>`) +
+    `</div>`;
+  const body = box.querySelector<HTMLElement>(".in-body")!;
+  // A drawn library scene has no editor: show it playing above its tools.
+  if (!sp) stopLib = stage(box.querySelector<HTMLElement>(".in-lib")!, s.scene, null, sceneLabel(s.scene), { large: () => hooks.openLarge(k) }).stop;
+  body.appendChild(cardBody(s, k));
+  if (rows) body.insertAdjacentHTML("beforeend", `<details class="in-why"><summary>What the words named</summary><dl class="in-f layered">${rows}</dl></details>`);
   box.hidden = false;
+  $("mkWork").dataset.insp = "open";
+  body.scrollTop = scroll;
+  if (keep) box.querySelector<HTMLElement>(keep + ":not(:disabled)")?.focus({ preventScroll: true });
   const all = (Object.keys(named) as (keyof Named)[]).flatMap((key) => named[key]).filter((w) => !PRONOUNS.has(w.toLowerCase()));
   sess.preview.send({ type: "mark", block: s.after, words: all });
   if (s.quote) { const parts = s.quote.split("\n"); sess.preview.send({ type: "span", from: Math.max(0, s.after - parts.length + 1 - QUOTE_WINDOW), to: s.after, text: shown(s.quote) }); }
 }
 
-let stopEd: (() => void) | null = null;
-const stopInsp = () => { stopEd?.(); stopEd = null; };
-
 function onInspClick(e: Event): void {
   const t = (e.target as HTMLElement).closest("button"); if (!t || inspK < 0 || !t.dataset.a) return;
   const k = inspK;
-  if (t.dataset.a === "close") return closeInspector();
+  if (t.dataset.a === "close") return deselect();
   if (t.dataset.a === "compose") {
     const B = book(), s = B.scenes[k]; if (!s) return;
-    checkpoint(); keepInsp = true;
+    checkpoint();
     s.scene = composeFor(s.after, s.quote); delete s.img; delete s.prompt;
-    commitScenes(B.scenes); inspect(k); return;
-  }
-  if (t.dataset.a === "card") { setPane("manuscript", "pictures"); openCard(k, true); return; }
-  if (t.dataset.a === "words") { closeInspector(); hooks.armWords(k); return; }
-  if (t.dataset.a === "remove") { closeInspector(); removePicture(k); return; }
-  if (t.dataset.a === "up" || t.dataset.a === "down") {
-    const id = book().scenes[k].scene;
-    keepInsp = true; moveCard(k, t.dataset.a === "up" ? -1 : 1);
-    const n = book().scenes.findIndex((x) => x.scene === id);
-    inspect(n >= 0 ? n : k);
+    follow(s);
+    commitScenes(B.scenes);
   }
 }
 
 export function initNav(): void {
-  $("mkChapters").addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest("button"); if (!b) return;
-    const c = chs[+b.dataset.k!]; if (c) goBlock(c.start);
-  });
   $("mkThumb").addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest("button"); if (!b) return;
-    if (b.dataset.j) { const s = book().scenes[+b.dataset.j]; if (s) { goBlock(s.after, true); inspect(+b.dataset.j); } return; }
+    if (b.dataset.j) { const j = +b.dataset.j, s = book().scenes[j]; if (s) { goBlock(s.after, true); openCard(j); } return; }
     const c = chs[+b.dataset.k!]; if (c) goBlock(c.start);
   });
   $("mkInsp").addEventListener("click", onInspClick);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && inspK >= 0) closeInspector(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || inspK < 0 || document.querySelector("dialog[open]")) return;
+    const t = e.target as HTMLElement;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) && !$("mkInsp").contains(t)) return;
+    deselect();
+  });
 }

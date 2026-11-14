@@ -3,9 +3,9 @@
 import { isBreak, plain } from "../inline";
 import { findIssues, applyFix, type Kind } from "../text/check";
 import { htmlToMarkdown, richEnough } from "../import/html";
-import { $, book, hasText, narrow, plural, sess, setMd } from "./session";
+import { $, book, hasText, plural, sess, setMd } from "./session";
 import { checkpoint, UNDO } from "./undo";
-import { setPane, toast, type Pane } from "./ui";
+import { setPane, toast } from "./ui";
 import { rebuildText } from "./rebuild";
 
 export function renderOutline(): void {
@@ -38,7 +38,7 @@ export function jumpEditor(text: string): void {
   const ta = $<HTMLTextAreaElement>("mkMd"), needle = text.split("\n")[0].slice(0, 40);
   const at = ta.value.indexOf(needle);
   if (at < 0) return;
-  if (narrow()) setPane("manuscript", "text"); else setPane($("mkWork").dataset.pane === "design" ? "manuscript" : ($("mkWork").dataset.pane as Pane), "text");
+  setPane("manuscript", "text");
   ta.focus({ preventScroll: true });
   ta.setSelectionRange(at, at + needle.length);
   sess.editor.reveal(at);

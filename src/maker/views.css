@@ -159,25 +159,6 @@ dialog.palette::backdrop{background:color-mix(in srgb,var(--desk) 62%,transparen
 .pl-item em{font-style:normal;font:11.5px var(--font-ui);color:var(--muted);flex:none;max-width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pl-none{margin:0;padding:22px 12px;text-align:center;color:var(--muted);font-size:13px}
 
-/* ---------- suggestions in the Pictures tab ---------- */
-.mk-sugg{display:flex;align-items:center;gap:12px;padding:12px 2px;border:0;border-top:1px solid color-mix(in srgb,var(--ink) 8%,transparent);border-bottom:1px solid color-mix(in srgb,var(--ink) 8%,transparent);border-radius:0;font-size:13px;color:var(--muted)}
-.mk-sugg[hidden]{display:none}
-.mk-sugg p{margin:0;flex:1;line-height:1.4}
-.mk-sugg b{color:var(--ink);font:600 13px var(--font-ui)}
-.mk-sugg .btn{flex:none;min-height:34px;padding:0 14px;background:var(--fill);border-color:var(--fill);color:var(--on-fill)}
-.mk-sugg .btn:hover{filter:brightness(1.12);border-color:var(--accent)}
-
-/* ---------- removed pictures ---------- */
-.mk-scenes .rm-h{background:none;border:0;border-radius:0;padding:10px 2px 0;font-size:11.5px;font-weight:600;color:var(--muted)}
-.mk-scenes li.rm{display:grid;grid-template-columns:72px 1fr auto;gap:10px;align-items:center;padding:8px 10px 8px 8px;background:transparent;border-style:dashed}
-.rm-th{display:block;aspect-ratio:8/5;border-radius:var(--r-chip,8px);overflow:hidden;background:var(--desk);border:1px solid var(--rule);opacity:.4;filter:grayscale(1)}
-.rm-th svg{display:block;width:100%;height:100%}
-.rm-t{display:flex;flex-direction:column;gap:3px;min-width:0}
-.rm-t s{font-size:13px;color:var(--muted);text-decoration-color:var(--pollen);text-decoration-thickness:1.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rm-m{font-size:11.5px;color:var(--muted)}
-.rm-b{min-height:34px;padding:0 12px;color:var(--accent2)}
-:root[data-mode=light] .rm-b{color:var(--accent)}
-
 /* ---------- small screens ---------- */
 @media (max-width:759px){
   .cp-cols{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:88%;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px}

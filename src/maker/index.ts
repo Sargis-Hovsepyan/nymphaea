@@ -4,7 +4,6 @@
 // through the Guard. This file wires the parts together; each part lives in its own module:
 //   session (shared state) · draft + shelf (saving, books) · undo · importer · textPane · pictures
 //   paint + staging (AI) · design · exportSheet · pick (clicks in the preview) · shortcuts · uiState
-import { THEMES } from "../design/themes";
 import { PAIRINGS } from "../design/type";
 import type { Pristine } from "../export";
 import { canExport } from "../export";
@@ -14,11 +13,11 @@ import { bindControls, syncControls } from "../ui/controls";
 import { initAiPanel } from "./ai";
 import { syncAi } from "./aiState";
 import { applyDraft, blankBook, saveDraft, savedDraft } from "./draft";
-import { LAYOUT_NAME, LIGHT_NOTE, STYLE_NAME, buildStyles, buildThemes, firstLine, markPresets, resetLook, setOpt, specimens } from "./design";
+import { LIGHT_NOTE, buildStyles, buildThemes, firstLine, markPresets, resetLook, setOpt, specimens } from "./design";
 import { mountEditor } from "./editor";
 import { initImporter } from "./importer";
 import { checkPick, initPick, onPick, onSelect, onView } from "./pick";
-import { initScenes, renderScenes } from "./pictures";
+import { deselect, initScenes, renderScenes } from "./pictures";
 import { createPreview } from "./preview";
 import { rebuildText } from "./rebuild";
 import { initExport, renderSummary } from "./exportSheet";
@@ -32,9 +31,8 @@ import { initNav, onWhere, renderNav } from "./bookNav";
 import { initLarge } from "./large";
 import { initExtras, refreshExtras } from "./extras";
 import { initViews, refreshView } from "./views";
-import { load, store } from "../store";
 import { initUiState } from "./uiState";
-import { saveState, setPane, toast, type Pane, type Tab } from "./ui";
+import { currentSide, onSideChange, savedSide, saveState, setSide, toast, type Side } from "./ui";
 
 let specKey = "";
 
@@ -56,7 +54,6 @@ function refresh(): void {
   renderSummary(ps, w);
   $("mkEmpty").hidden = ok;
   $("mkFrame").style.visibility = ok ? "visible" : "hidden";
-  $("mkPnote").textContent = ok ? LAYOUT_NAME[S.layout] + ", " + THEMES[S.theme].name + " " + (S.mode === "auto" ? "auto" : S.mode) + ", " + STYLE_NAME[S.style] + ", " + plural(B.scenes.length, "picture") : "Preview";
   const can = ok && canExport(sess.pristine);
   ["mkDownload", "mkOpenTab", "mkEpub", "mkPrint"].forEach((id) => { $<HTMLButtonElement>(id).disabled = !can; });
   ["mkExportBtn", "mkMdDl", "mkAuto", "mkAsk"].forEach((id) => { $<HTMLButtonElement>(id).disabled = !ok; });
@@ -75,21 +72,13 @@ function refresh(): void {
   if (ok) { sess.preview.images(usedImages()); sess.preview.render(B, S); }
 }
 
-/** The Studio's own type: Archivo for the interface, Geist Mono for counts. Never shipped in a book. */
+/** The Studio's own type: Schibsted Grotesk for the whole interface. Never shipped in a book. */
 function studioFonts(): void {
   if (document.getElementById("mkFontsCss")) return;
   const l = document.createElement("link");
   l.id = "mkFontsCss"; l.rel = "stylesheet";
-  l.href = "https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..700&family=Geist+Mono:wght@400;500&display=swap";
+  l.href = "https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400..800&display=swap";
   document.head.appendChild(l);
-}
-
-const PANEL_KEY = "nymphaea-studio-panel";
-function setPanel(open: boolean): void {
-  $("mkWork").dataset.left = open ? "open" : "closed";
-  $("mkRailHide").setAttribute("aria-pressed", String(!open));
-  $("mkRailHide").title = open ? "Hide the panel" : "Show the panel";
-  store(PANEL_KEY, open ? "open" : "closed");
 }
 
 function setZoom(z: number): void {
@@ -113,28 +102,20 @@ export function initMaker(p: Pristine): void {
   if (draft) applyDraft(draft); else blankBook();
   $("mkWork").hidden = false;
 
-  // Panes and tabs
+  // Beside the book: the text or the look, one at a time (a full screen each on phones).
+  const toggle = (s: Side) => setSide(currentSide() === s ? "none" : s);
+  $("mkTextBtn").addEventListener("click", () => { toggle("text"); if (currentSide() === "text") $("mkMd").focus({ preventScroll: true }); });
+  $("mkLookBtn").addEventListener("click", () => toggle("look"));
   document.querySelector(".wk-nav")!.addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest("button"); if (b) setPane(b.dataset.pane as Pane, b.dataset.tab as Tab | undefined);
+    const b = (e.target as HTMLElement).closest<HTMLElement>("button[data-side]"); if (b) setSide(b.dataset.side as Side);
   });
-  $("mkSideSw").addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest("button"); if (b) setPane(b.dataset.side as Pane);
-  });
-  // The Markdown stays closed until the author asks for it: the Studio opens on the Book panel.
-  setPane("manuscript", "pictures");
+  $("mkWork").addEventListener("click", (e) => { if ((e.target as HTMLElement).closest("[data-close-side]")) setSide("none"); });
+  // At mid widths the side and the open picture take turns beside the book.
+  const mid = () => matchMedia("(max-width:1199px)").matches;
+  onSideChange(() => deselect());
+  hooks.openPanel = () => { if (mid() && !narrow() && currentSide() !== "none") setSide("none"); };
+  setSide(narrow() ? "none" : savedSide());
   $("mkHome").addEventListener("click", showLanding);
-  // The rail: Book and Text are tabs of the left panel; a second click on the open one hides it.
-  $("mkTabs").addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>("button[data-tab]"); if (!b) return;
-    const w = $("mkWork"), same = w.dataset.tab === b.dataset.tab && w.dataset.left !== "closed";
-    if (same && !narrow()) { setPanel(false); return; }
-    setPanel(true); setPane("manuscript", b.dataset.tab as Tab);
-  });
-  $("mkOpenText").addEventListener("click", () => { setPanel(true); setPane("manuscript", "text"); $("mkMd").focus({ preventScroll: true }); });
-  $("mkRailAi").addEventListener("click", () => $("mkAiOpen").click());
-  $("mkRailHide").addEventListener("click", () => setPanel($("mkWork").dataset.left === "closed"));
-  setPanel(load<string>(PANEL_KEY) !== "closed");
-  hooks.openPanel = () => { if ($("mkWork").dataset.left === "closed") setPanel(true); };
   // Shortcuts say Ctrl where there is no ⌘ key.
   if (!/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) {
     document.querySelectorAll<HTMLElement>("#maker kbd").forEach((k) => { k.textContent = (k.textContent || "").replace("⌘", "Ctrl "); });

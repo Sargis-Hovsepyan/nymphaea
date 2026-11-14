@@ -12,7 +12,7 @@ import { addPictureAfter, addPictureFrom, openCard, pNumber, redrawFrom, setHere
 import { rowsHtml, rowsOfReading } from "./readout";
 import { toast } from "./ui";
 import { jumpEditor } from "./textPane";
-import { closeInspector, inspect } from "./bookNav";
+import { closeInspector } from "./bookNav";
 import { setPane } from "./ui";
 import { cap, clip, esc } from "../text/strings";
 
@@ -48,7 +48,7 @@ export function onPick(block: number, fig = -1): void {
   if (!b) return;
   show(block, fig);
   if (narrow()) return;
-  if (fig >= 0) { hide(); setPane("manuscript", "pictures"); openCard(fig); inspect(fig); return; }
+  if (fig >= 0) { hide(); openCard(fig); return; }
   closeInspector();
   if ($("mkWork").dataset.tab === "text" && b.type !== "h") jumpEditor(b.text);
 }

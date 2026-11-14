@@ -1,9 +1,9 @@
-// Keyboard: the shortcuts (Undo, Save, Export), arrow keys on the tabs, and the book menu.
+// Keyboard: the shortcuts (Undo, Save, Export, Text, Look) and the book menu.
 import { $, hasText, hooks } from "./session";
 import { landingOpen } from "./shelf";
 import { downloadBook } from "./exportSheet";
 import { undo } from "./undo";
-import { openExport, setPane, type Tab } from "./ui";
+import { currentSide, openExport, setSide } from "./ui";
 
 const typingIn = (t: EventTarget | null): boolean => { const el = t as HTMLElement | null; return !!el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable); };
 
@@ -14,19 +14,9 @@ export function initShortcuts(): void {
     if (k === "z" && !e.shiftKey && !typing) { e.preventDefault(); undo(); }
     else if (k === "s" && !typing) { e.preventDefault(); downloadBook(); }
     else if (k === "e" && hasText()) { e.preventDefault(); hooks.refresh(); openExport(); }
-    else if (k === "j") { e.preventDefault(); $("mkOpenText").click(); }
-  });
-
-  // Tabs: arrows move between them (roving tabindex), Home and End jump.
-  const tabs = $("mkTabs");
-  tabs.addEventListener("keydown", (e) => {
-    const list = Array.from(tabs.querySelectorAll<HTMLElement>("[role=tab]")), i = list.indexOf(document.activeElement as HTMLElement);
-    if (i < 0) return;
-    const to = e.key === "ArrowRight" || e.key === "ArrowDown" ? (i + 1) % list.length : e.key === "ArrowLeft" || e.key === "ArrowUp" ? (i + list.length - 1) % list.length : e.key === "Home" ? 0 : e.key === "End" ? list.length - 1 : -1;
-    if (to < 0) return;
-    e.preventDefault();
-    setPane("manuscript", list[to].dataset.tab as Tab);
-    list[to].focus();
+    // The text and the look open beside the book; the same keys close them.
+    else if (k === "j") { e.preventDefault(); setSide(currentSide() === "text" ? "none" : "text"); if (currentSide() === "text") $("mkMd").focus({ preventScroll: true }); }
+    else if (k === ".") { e.preventDefault(); setSide(currentSide() === "look" ? "none" : "look"); }
   });
 
   // The book menu: Escape closes it and gives focus back; arrows move through its items.

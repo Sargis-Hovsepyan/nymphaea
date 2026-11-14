@@ -4,6 +4,7 @@
 import { explain } from "../ai/config";
 import { askJson } from "../ai/text";
 import { decode } from "../compose/spec";
+import type { SceneRef } from "../types";
 import { buildRedrawPrompt, buildStagingPrompt, readStagingReply } from "../stage/claude";
 import { sameBlocks } from "../stage/guard";
 import { state } from "../state";
@@ -15,7 +16,7 @@ import { syncAi } from "./aiState";
 import { toast } from "./ui";
 
 /** Picture k drawn again by the text model, from its paragraph read in context. Undoable; the Guard checks it. */
-export async function redrawWithAi(k: number): Promise<void> {
+export async function redrawWithAi(k: number, keepOpen?: (s: SceneRef) => void): Promise<void> {
   const c = aiConfig();
   if (!textReady(c)) { toast("Connect a text model to redraw pictures with AI."); openAi(); return; }
   const B = book(), s = B.scenes[k];
@@ -30,6 +31,7 @@ export async function redrawWithAi(k: number): Promise<void> {
     if (!r || !decode(r.scene)) { toast("The model’s answer couldn’t be drawn. Try again.", true); return; }
     checkpoint();
     s.scene = r.scene; s.caption = r.caption; delete s.img; delete s.prompt;
+    keepOpen?.(s);
     hooks.refresh();
     toast("Picture " + (k + 1) + " redrawn.", false, UNDO);
   } catch (e) {

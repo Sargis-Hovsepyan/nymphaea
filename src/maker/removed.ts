@@ -1,4 +1,4 @@
-// Pictures taken away from a card stay visible, struck through, at the end of the picture list with a
+// Pictures taken away stay listed, struck through, under Picture settings on the strip, with a
 // Restore button. They go when the text changes or after five more picture edits. Restoring goes
 // through commitScenes, so the Guard checks the caption again.
 import type { SceneRef } from "../types";
@@ -55,7 +55,7 @@ export function renderRemoved(list: HTMLElement): void {
 }
 
 export function initRemoved(): void {
-  $("mkScenes").addEventListener("click", (e) => {
+  $("mkRemoved").addEventListener("click", (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>("[data-restore]");
     if (!b) return;
     const g = gone.find((x) => pkey(x.ref) === b.dataset.restore);

@@ -53,24 +53,41 @@ export function saveFailed(): void {
 
 export type Pane = "manuscript" | "book" | "design";
 export type Tab = "text" | "pictures";
+/** What opens beside the book: nothing, the text, or the look. */
+export type Side = "none" | "text" | "look";
 
-/** Show a pane (phones show one at a time, mid widths one side next to the book) and a tab. */
-export function setPane(pane: Pane, tab?: Tab): void {
+const SIDE_KEY = "nymphaea-studio-side";
+const midWidth = () => matchMedia("(max-width:1199px)").matches;
+const phone = () => matchMedia("(max-width:759px)").matches;
+let onSide: (s: Side) => void = () => {};
+/** Told when the side changes (index.ts closes the picture at mid widths, where they take turns). */
+export function onSideChange(fn: (s: Side) => void): void { onSide = fn; }
+
+export const currentSide = (): Side => ($("mkWork").dataset.side as Side) || "none";
+
+/** Open the text or the look beside the book (one at a time), or close both. On phones each is a full screen. */
+export function setSide(s: Side): void {
   const w = $("mkWork");
-  w.dataset.pane = pane;
-  if (tab) {
-    if (w.dataset.tab !== tab) { const sc = $("mkScroll"); if (sc) sc.scrollTop = 0; }
-    w.dataset.tab = tab;
-    $("tabText").hidden = tab !== "text";
-    $("tabPictures").hidden = tab !== "pictures";
-    document.querySelectorAll<HTMLElement>("#mkTabs [role=tab]").forEach((b) => { const on = b.dataset.tab === tab; b.setAttribute("aria-selected", String(on)); b.tabIndex = on ? 0 : -1; });
-  }
-  const t = w.dataset.tab as Tab;
-  document.querySelectorAll<HTMLElement>(".wk-nav button").forEach((b) => {
-    const on = b.dataset.pane === pane && (pane !== "manuscript" || b.dataset.tab === t);
-    b.setAttribute("aria-pressed", String(on));
-  });
-  document.querySelectorAll<HTMLElement>("#mkSideSw button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.side === (pane === "design" ? "design" : "manuscript"))));
+  if (w.dataset.side === s) return;
+  w.dataset.side = s;
+  $("mkTextBtn").setAttribute("aria-pressed", String(s === "text"));
+  $("mkLookBtn").setAttribute("aria-pressed", String(s === "look"));
+  document.querySelectorAll<HTMLElement>(".wk-nav button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.side === s)));
+  try { localStorage.setItem(SIDE_KEY, s); } catch { /* the Studio works without it */ }
+  if (s !== "none" && midWidth() && !phone()) onSide(s);
+}
+/** The side the author left open, for wide screens (phones always open on the book). */
+export function savedSide(): Side {
+  let v: string | null = null;
+  try { v = localStorage.getItem(SIDE_KEY); } catch { /* none */ }
+  return v === "text" || v === "look" ? v : "none";
+}
+
+/** The older pane-and-tab vocabulary, kept for the many callers: the pictures are always on the strip now. */
+export function setPane(pane: Pane, tab?: Tab): void {
+  if (pane === "design") setSide("look");
+  else if (pane === "manuscript" && tab === "text") setSide("text");
+  else if (phone()) setSide("none");
 }
 
 

@@ -1,8 +1,8 @@
 // The Pictures tab: one compact card per picture (thumbnail, caption, paragraph). A card opens to its
 // full editor, one at a time. Moving, adding, removing and choosing the cover all go through the
 // Guard, so a caption can never stop being a quote of the author's words.
-import { decode, encode, blank, LABEL, type Spec } from "../compose/spec";
-import { actsSummary, pictureEditor } from "./pictureEdit";
+import { decode, encode, blank, type Spec } from "../compose/spec";
+import { pictureEditor } from "./pictureEdit";
 import { inReach, readQuoteAt, trackSpecs } from "../compose/read";
 import { shown, type Hit } from "../stage/locate";
 import { autoStage, captionFor, captionOf } from "../stage/auto";
@@ -14,12 +14,13 @@ import { imageReady, aiConfig, openAi } from "./ai";
 import { briefFor, paint, paintAll } from "./paint";
 import { movePicture, canMove } from "./pictureMove";
 import { $, book, clearWarn, commitScenes, hasText, hooks, narrow, painting, pkey, plural, sceneNote, sess, stopAll } from "./session";
-import { thumb } from "./studio";
 import { checkpoint, UNDO } from "./undo";
 import { setPane, toast } from "./ui";
 import { redrawWithAi, stageOrConnect } from "./staging";
 import { noteRemoved, renderRemoved } from "./removed";
 import { cap, clip } from "../text/strings";
+import { closeInspector, inspect } from "./bookNav";
+import { initStrip, markHere, renderStrip } from "./strip";
 
 const COMPOSE = "__compose";
 
@@ -109,7 +110,8 @@ function paintRow(s: SceneRef, k: number): HTMLElement | null {
 
 const isCover = (s: SceneRef): boolean => { const B = book(); return !!B.cover && B.scenes.find((x) => x.scene === B.cover) === s; };
 
-function cardBody(s: SceneRef, k: number): HTMLElement {
+/** The open picture's tools: scene, caption, words, the editor, painting, and where it sits. */
+export function cardBody(s: SceneRef, k: number): HTMLElement {
   const B = book(), body = document.createElement("div"); body.className = "card-b"; body.id = "card-b-" + k;
   const sel = document.createElement("select"); sel.className = "mk-input"; sel.dataset.f = "scene"; sel.setAttribute("aria-label", "Scene for picture " + (k + 1)); sceneOptions(sel, s.scene);
   const capIn = document.createElement("input"); capIn.className = "mk-input cap"; capIn.dataset.f = "cap"; capIn.value = s.caption;
@@ -134,10 +136,10 @@ function cardBody(s: SceneRef, k: number): HTMLElement {
       reread: () => decode(composeFor(s.after, s.quote)),
       large: () => hooks.openLarge(k),
       mark: () => sess.preview.send({ type: "scroll", block: s.after, picture: true }),
-      ai: () => void redrawWithAi(k),
+      ai: () => void redrawWithAi(k, follow),
     });
     editors.push(ed.stop);
-    body.appendChild(ed.el);
+    body.prepend(ed.el); // the picture and its tools first, then its scene, caption and words
   }
   const pr = paintRow(s, k);
   if (pr) body.appendChild(pr);
@@ -152,75 +154,58 @@ function cardBody(s: SceneRef, k: number): HTMLElement {
   return body;
 }
 
-/** The players of open editors, stopped when the list is drawn again. */
+/** The players of the open picture's editor, stopped when it is drawn again or closed. */
 const editors: (() => void)[] = [];
+export const stopEditors = (): void => editors.splice(0).forEach((stop) => stop());
 
-export function renderScenes(): void {
-  editors.splice(0).forEach((stop) => stop());
-  let specs: ReturnType<typeof trackSpecs> = []; try { specs = trackSpecs(book().blocks); } catch { /* chips are optional */ }
-  const B = book(), list = $("mkScenes");
-  // Keep keyboard focus on the same control through the rebuild (buttons and selects, not text fields).
-  const ae = document.activeElement as HTMLElement | null, keepF = ae && list.contains(ae) && ae.dataset.f && !/^(INPUT|TEXTAREA)$/.test(ae.tagName) ? ae.dataset.f : "";
-  list.textContent = "";
-  const by = ({ hand: "placed by hand", auto: "placed automatically at the scene changes in your text", claude: "staged by AI" } as Record<string, string>)[B.source] || "";
-  if (!hasText()) { sceneNote("Add some text first."); return; }
-  const nComp = B.scenes.filter((s) => decode(s.scene)).length, nImg = B.scenes.filter((s) => s.img && sess.images[s.img]).length;
-  const extra = (nComp ? ", " + nComp + " composed from the text" : "") + (nImg ? ", " + nImg + " painted" : "");
-  if (!$("mkSceneNote").classList.contains("warn")) sceneNote(B.scenes.length ? plural(B.scenes.length, "picture") + ", " + by + extra + "." : "No pictures yet.");
-  if (!B.scenes.length) { const li = document.createElement("li"); li.className = "empty"; li.textContent = "Place them automatically, or click a paragraph in the book and add one there."; list.appendChild(li); }
-  let found = false;
-  B.scenes.forEach((s, k) => {
-    const li = document.createElement("li"); li.dataset.k = String(k);
-    const open = pkey(s) === openKey && !found; if (open) found = true;
-    li.className = [open ? "open" : "", painting.has(pkey(s)) ? "busy" : "", k === hereK ? "here" : "", isCover(s) ? "is-cover" : ""].filter(Boolean).join(" ");
-    const head = document.createElement("button"); head.type = "button"; head.className = "card-h"; head.dataset.f = "card-h";
-    head.setAttribute("aria-expanded", String(open)); head.setAttribute("aria-controls", "card-b-" + k);
-    const th = document.createElement("span"); th.className = "th";
-    const src = s.img && sess.images[s.img];
-    if (src) { const im = document.createElement("img"); im.src = src; im.alt = ""; th.appendChild(im); const ai = document.createElement("b"); ai.className = "ai"; ai.textContent = "AI"; th.appendChild(ai); }
-    else th.innerHTML = thumb(s.scene);
-    const n = document.createElement("i"); n.textContent = String(k + 1); th.appendChild(n);
-    const t = document.createElement("span"); t.className = "card-t";
-    const c = document.createElement("span"); c.className = "card-cap"; c.textContent = s.caption || "No caption";
-    const m = document.createElement("span"); m.className = "card-m"; m.textContent = "¶ " + pNumber(s.after) + (isCover(s) ? " · Cover" : "");
-    const rd = decode(s.scene) || specs[s.after];
-    if (rd) [rd.place === "inner" ? (rd.acts?.length ? "stage" : "") : LABEL.place[rd.place].replace(/^(a|an|the) /, ""), rd.time].filter(Boolean).forEach((x) => { const g = document.createElement("b"); g.className = "card-tag"; g.textContent = x; m.appendChild(g); });
-    const acting = actsSummary(decode(s.scene));
-    if (acting) { const ac = document.createElement("span"); ac.className = "card-act"; ac.textContent = acting; t.append(c, ac, m); } else t.append(c, m);
-    head.append(th, t); li.appendChild(head);
-    if (open) li.appendChild(cardBody(s, k));
-    list.appendChild(li);
-  });
-  renderRemoved(list);
-  if (!found) openKey = "";
-  if (keepF) {
-    const li = list.querySelector("li.open") || null;
-    const el = (li && (li.querySelector<HTMLElement>('[data-f="' + keepF + '"]:not(:disabled)') || li.querySelector<HTMLElement>('[data-f="card-h"]'))) as HTMLElement | null;
-    if (el) el.focus({ preventScroll: true });
-  }
+/** What the open picture's panel shows: drawn again only when this changes, so typing elsewhere doesn't restart it. */
+function inspSig(s: SceneRef, k: number): string {
+  const B = book();
+  return [k, JSON.stringify(s), B.scenes.length, B.blocks.length, painting.has(pkey(s)), isCover(s), imageReady(aiConfig()), state.settings.style].join("|");
 }
 
-/** Open one card (closing the others) and bring it into view. */
+/** Draw the strip and the open picture (the panel on the right). */
+export function renderScenes(): void {
+  const B = book();
+  const by = ({ hand: "placed by hand", auto: "placed automatically", claude: "staged by AI" } as Record<string, string>)[B.source] || "";
+  if (!hasText()) sceneNote("");
+  else if (!$("mkSceneNote").classList.contains("warn")) {
+    const nComp = B.scenes.filter((s) => decode(s.scene)).length, nImg = B.scenes.filter((s) => s.img && sess.images[s.img]).length;
+    const extra = (nComp ? ", " + nComp + " composed" : "") + (nImg ? ", " + nImg + " painted" : "");
+    sceneNote(B.scenes.length ? (by ? cap(by) + extra + "." : "") : "");
+  }
+  const k = openKey ? B.scenes.findIndex((s) => pkey(s) === openKey) : -1;
+  if (k < 0) openKey = "";
+  renderStrip(k, hereK, isCover);
+  const rm = $("mkRemoved"); rm.textContent = ""; renderRemoved(rm);
+  if (k >= 0) inspect(k, inspSig(B.scenes[k], k)); else closeInspector();
+}
+
+/** Open picture k on the right (the strip marks it). With `focus`, the keyboard goes into its panel. */
 export function openCard(k: number, focus = false): void {
   const s = book().scenes[k];
   if (!s) return;
   openKey = pkey(s);
   hooks.openPanel();
   renderScenes();
-  const li = $("mkScenes").querySelector<HTMLElement>('li[data-k="' + k + '"]');
-  if (li) { li.scrollIntoView({ block: "nearest" }); if (focus) li.querySelector<HTMLElement>(".card-h")!.focus({ preventScroll: true }); }
+  if (focus) $("mkInsp").querySelector<HTMLElement>("button:not(:disabled), select, input")?.focus({ preventScroll: true });
 }
 
-/** The reading point in the book is on picture k (-1 for none): mark that card. */
+/** Keep picture `s` open after its scene changed (the open one is known by its place and scene). */
+export function follow(s: SceneRef): void { openKey = pkey(s); }
+
+/** Close the open picture. */
+export function deselect(): void {
+  const k = book().scenes.findIndex((s) => pkey(s) === openKey);
+  openKey = ""; renderScenes();
+  if (k >= 0) $("mkStrip").querySelector<HTMLElement>('.sp-f[data-k="' + k + '"]')?.focus({ preventScroll: true });
+}
+
+/** The reading point in the book is on picture k (-1 for none): mark it on the strip. */
 export function setHere(k: number): void {
   if (k === hereK) return;
   hereK = k;
-  const list = $("mkScenes");
-  list.querySelectorAll("li.here").forEach((l) => l.classList.remove("here"));
-  const li = k >= 0 ? list.querySelector<HTMLElement>('li[data-k="' + k + '"]') : null;
-  if (!li) return;
-  li.classList.add("here");
-  if (li.offsetParent && !list.contains(document.activeElement)) li.scrollIntoView({ block: "nearest" });
+  markHere(k);
 }
 
 /* ---------------- editing ---------------- */
@@ -273,21 +258,28 @@ export function moveCard(k: number, dir: -1 | 1): void {
 }
 
 function badCaption(inp: HTMLInputElement, v: string, was: string): void {
-  const k = inp.closest("li")!.dataset.k, msg = $("cap-msg-" + k);
+  const k = inp.closest<HTMLElement>("[data-k]")!.dataset.k, msg = $("cap-msg-" + k);
   inp.setAttribute("aria-invalid", "true");
   msg.hidden = false; msg.textContent = "Not a quote. “" + (v.length > 36 ? v.slice(0, 36) + "…" : v) + "” isn’t in the text just before this picture, so the caption stays as it was.";
   inp.value = was;
 }
 function okCaption(inp: HTMLInputElement): void {
   inp.removeAttribute("aria-invalid");
-  const k = inp.closest("li")!.dataset.k, msg = $("cap-msg-" + k); if (msg) msg.hidden = true;
+  const k = inp.closest<HTMLElement>("[data-k]")!.dataset.k, msg = $("cap-msg-" + k); if (msg) msg.hidden = true;
 }
 
 export function initScenes(): void {
-  const list = $("mkScenes");
+  initStrip({
+    select: (k, scrollBook) => { openCard(k); const s = book().scenes[k]; if (s && scrollBook) sess.preview.send({ type: "scroll", block: s.after, picture: true }); },
+    add: (b) => addPictureAfter(b),
+    remove: (k) => removePicture(k),
+    move: (k, dir) => moveCard(k, dir),
+  });
+  // The open picture's panel: the same tools a card had, now docked on the right.
+  const list = $("mkInsp");
   list.addEventListener("input", (e) => { const t = e.target as HTMLInputElement; if (t.classList.contains("cap")) okCaption(t); });
   list.addEventListener("change", (e) => {
-    const t = e.target as HTMLElement, li = t.closest("li"), B = book();
+    const t = e.target as HTMLElement, li = t.closest<HTMLElement>("[data-k]"), B = book();
     if (!li || li.dataset.k == null) return;
     const k = +li.dataset.k, s = B.scenes[k], f = t.dataset.f || "";
     if (f === "scene") {
@@ -310,10 +302,9 @@ export function initScenes(): void {
     }
   });
   list.addEventListener("click", (e) => {
-    const b = (e.target as HTMLElement).closest("button"), li = b && b.closest("li");
+    const b = (e.target as HTMLElement).closest("button"), li = b && b.closest<HTMLElement>("[data-k]");
     if (!b || !li || li.dataset.k == null) return;
     const k = +li.dataset.k, B = book(), s = B.scenes[k], f = b.dataset.f || "";
-    if (f === "card-h") { if (li.classList.contains("open")) { openKey = ""; renderScenes(); (list.querySelector(`li[data-k="${k}"] .card-h`) as HTMLElement).focus({ preventScroll: true }); } else openCard(k, true); return; }
     if (f === "x") removePicture(k);
     else if (f === "go") { sess.preview.send({ type: "scroll", block: s.after, picture: true }); if (narrow()) setPane("book"); }
     else if (f === "mv-up") moveCard(k, -1);

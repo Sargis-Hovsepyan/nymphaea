@@ -39,7 +39,8 @@ function actions(): Item[] {
   const mode = (m: "light" | "dark") => { for (let i = 0; i < 3 && studioMode() !== m; i++) document.querySelector<HTMLElement>(".mk-mode")?.click(); };
   if (studioMode() !== "light") add("Switch the Studio to light", "Colours", () => mode("light"), " mode theme day");
   if (studioMode() !== "dark") add("Switch the Studio to dark", "Colours", () => mode("dark"), " mode theme night");
-  add("Open the text editor", "Text", () => setPane("manuscript", "text"), " markdown write");
+  add("Open the text beside the book", "Text", () => setPane("manuscript", "text"), " markdown write editor");
+  add("Open the look", "Look", () => setPane("design"), " design edition theme type light paper");
   add("Undo the last change", "⌘Z", undo);
   return out;
 }

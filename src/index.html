@@ -165,8 +165,9 @@
     </section>
   </div>
 
-  <!-- Workspace: manuscript, the live book, the design inspector -->
-  <div class="wk" id="mkWork" hidden data-pane="manuscript" data-tab="pictures" data-view="book">
+  <!-- Workspace: the book in the middle, every picture on the strip below it, the picture being
+       worked on docked on the right; the text and the look open beside the book when asked for. -->
+  <div class="wk" id="mkWork" hidden data-side="none" data-view="book">
     <header class="wk-top">
       <div class="wk-id">
         <button class="wk-home" id="mkHome" type="button" aria-label="Nymphaea home" title="Home"><svg class="mk-mark" aria-hidden="true"><use href="#i-lotus"/></svg></button>
@@ -182,9 +183,11 @@
         <button type="button" data-view="line" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18"/><circle cx="6" cy="12" r="2.2"/><circle cx="13" cy="12" r="2.2"/><circle cx="19" cy="12" r="2.2"/></svg><span>Story line</span></button>
         <button type="button" data-view="compare" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="7" height="15" rx="1.5"/><rect x="13.5" y="4.5" width="7" height="15" rx="1.5"/></svg><span>Compare</span></button>
       </div>
-      <div class="seg wk-sidesw" id="mkSideSw" aria-label="Panel"><button type="button" data-side="manuscript">Book</button><button type="button" data-side="design">Design</button></div>
       <div class="wk-actions">
-        <button class="wk-cmd" id="mkCmdBtn" type="button" aria-haspopup="dialog" aria-controls="mkPalette"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span>Find words, places, actions</span><kbd>⌘K</kbd></button>
+        <button class="wk-cmd" id="mkCmdBtn" type="button" aria-haspopup="dialog" aria-controls="mkPalette" title="Find words, places and actions"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg><span>Find</span><kbd>⌘K</kbd></button>
+        <button class="btn primary wk-ask" id="mkAsk" type="button">✦ Stage with AI</button>
+        <button class="wk-tg" id="mkTextBtn" type="button" aria-pressed="false" aria-controls="paneText" title="The text, beside the book (⌘J)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-1 10-10-3-3L6 15z"/><path d="M14 6l3 3"/></svg><span>Text</span></button>
+        <button class="wk-tg" id="mkLookBtn" type="button" aria-pressed="false" aria-controls="paneDesign" title="Edition, type, page, light and pictures (⌘.)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c-5 0-9 3.6-9 8.2 0 3 2.4 5 5.2 5H10c1 0 1.6.9 1.2 1.8-.6 1.4.4 3 2 3 4.6 0 7.8-3.6 7.8-8.6C21 7 17 3 12 3z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="11" cy="7.5" r="1.2"/><circle cx="15.5" cy="8.5" r="1.2"/></svg><span>Look</span></button>
         <button class="mk-icon" id="mkUndoBtn" type="button" aria-label="Undo" title="Undo (⌘Z)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
         <button class="mk-icon mk-mode" type="button" aria-label="Colours" title="Colours"></button>
         <details class="wk-menu" id="mkMenu">
@@ -195,21 +198,14 @@
             <button type="button" role="menuitem" id="mkUndoMenu">Undo last change <kbd>⌘Z</kbd></button>
           </div>
         </details>
-        <button class="btn primary wk-export" id="mkExportBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Export</span></button>
+        <button class="btn wk-export" id="mkExportBtn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Export</span></button>
       </div>
     </header>
 
-    <div class="wk-body">
-      <nav class="wk-rail" id="mkTabs" role="tablist" aria-label="Panels" aria-orientation="vertical">
-        <button type="button" role="tab" id="tabBtnPictures" aria-controls="tabPictures" aria-selected="true" data-tab="pictures"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14M5 11h10M5 16h14"/></svg><span>Pictures</span></button>
-        <button type="button" role="tab" id="tabBtnText" aria-controls="tabText" aria-selected="false" tabindex="-1" data-tab="text"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-1 10-10-3-3L6 15z"/><path d="M14 6l3 3"/></svg><span>Text</span></button>
-        <span class="wk-rail-sp"></span>
-        <button type="button" class="wk-rail-x" id="mkRailAi" title="AI models (optional)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 9h6v6H9zM9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/></svg><span>Models</span></button>
-        <button type="button" class="wk-rail-x" id="mkRailHide" aria-pressed="false" title="Hide the panel"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M9.5 4.5v15"/></svg><span>Panel</span></button>
-      </nav>
-      <aside class="wk-left" id="paneLeft" aria-label="Book and text">
-        <div class="wk-scroll" id="mkScroll">
-          <div class="wk-tabpanel" id="tabText" role="tabpanel" aria-labelledby="tabBtnText" hidden>
+    <aside class="wk-side" id="paneText" data-s="text" aria-label="Text">
+      <header class="wk-sh"><h2>Text</h2><button class="mk-icon" type="button" data-close-side aria-label="Close the text"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+      <div class="wk-scroll" id="mkScroll">
+        <div class="wk-tabpanel" id="tabText">
             <div class="mk-report" id="mkReport" role="status" aria-live="polite" hidden></div>
             <details class="fold" id="mkFold">
               <summary>Title page</summary>
@@ -230,73 +226,14 @@
               <summary>Formatting help</summary>
               <p class="note">Start a line with <code>#</code> for a chapter or <code>##</code> for a section. <code>&gt;</code> makes a quote, and under a heading an epigraph. End a line with <code>\</code> to keep its line break, for verse. <code>*word*</code> is italic, <code>**word**</code> bold, and <code>* * *</code> a scene break. Pasting from Word or Google Docs keeps italics and headings.</p>
             </details>
-          </div>
+        </div>
+      </div>
+    </aside>
 
-          <div class="wk-tabpanel" id="tabPictures" role="tabpanel" aria-labelledby="tabBtnPictures">
-            <header class="pn-h"><h2>Pictures</h2><span id="mkPicCount"></span></header>
-            <div class="pn-tools">
-              <div class="seg" data-key="density" aria-label="How many pictures"><button type="button" data-v="few">Few</button><button type="button" data-v="some">Some</button><button type="button" data-v="many">Many</button><button type="button" data-v="every">Every scene</button></div>
-              <div class="seg" data-key="art" aria-label="What they show"><button type="button" data-v="library">Drawn</button><button type="button" data-v="mixed">Best fit</button><button type="button" data-v="composed">From the text</button></div>
-              <p class="note" id="mkArtNote"></p>
-              <div class="row">
-                <button class="btn primary" id="mkAsk" type="button">✦ Stage with AI</button>
-                <button class="btn" id="mkAuto" type="button">Place automatically</button>
-                <button class="btn" id="mkStop" type="button" hidden>Stop</button>
-                <button class="btn quiet" id="mkClear" type="button">Remove all</button>
-              </div>
-            </div>
-            <div class="mk-aibar" id="mkAiBar">
-              <span class="mk-aistate" id="mkAiState"></span>
-              <button class="btn" id="mkPaintAll" type="button" hidden>Paint all with AI</button>
-              <button class="btn" id="mkAiOpen" type="button">AI models…</button>
-            </div>
-            <div class="mk-prog" id="mkProg" role="progressbar" aria-label="Progress" hidden><span id="mkProgTxt"></span><span class="bar"><i id="mkProgBar"></i></span></div>
-            <p class="note" id="mkSceneNote" role="status" aria-live="polite"></p>
-            <div class="mk-sugg" id="mkSugg" hidden></div>
-            <ol class="mk-scenes" id="mkScenes"></ol>
-            <p class="note">To add a picture, click a paragraph in the book and choose Add a picture.</p>
-            <button class="pn-text" id="mkFindWords" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M4 10h7M4 14h10M4 18h6"/><circle cx="17.5" cy="14.5" r="3"/><path d="M20 17l2 2"/></svg><span><b>Picture any words</b>Select them in the book, or find them here</span></button>
-            <section class="pn" aria-labelledby="pnCh"><header class="pn-h pn-h2"><h2 id="pnCh">Chapters</h2><span id="mkChCount"></span></header>
-              <ol class="ch-list" id="mkChapters"></ol></section>
-            <button class="pn-text" id="mkOpenText" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l4-1 10-10-3-3L6 15z"/></svg><span><b>Edit the text</b>Markdown, title page and typography</span><kbd>⌘J</kbd></button>
-          </div>
-        </div>
-      </aside>
-
-      <section class="wk-canvas" id="paneBook" aria-label="Book preview">
-        <p class="wk-pnote" id="mkPnote">Preview</p>
-        <div class="wk-view" id="viewBoard" data-v="board" hidden></div>
-        <div class="wk-view" id="viewLine" data-v="line" hidden></div>
-        <div class="wk-view" id="viewCompare" data-v="compare" hidden></div>
-        <div class="mk-stage" id="mkStage">
-          <div class="mk-thumb" id="mkThumb" role="navigation" aria-label="Chapters and pictures"></div>
-          <div class="mk-insp" id="mkInsp" role="dialog" aria-label="Picture" hidden></div>
-          <div class="mk-arm" id="mkArm" role="status" hidden></div>
-        <div class="mk-words" id="mkWords" role="dialog" aria-label="A picture of the selected words" hidden></div>
-          <iframe id="mkFrame" title="Preview of your book"></iframe>
-          <div class="mk-empty" id="mkEmpty">
-            <svg aria-hidden="true"><use href="#i-lotus"/></svg>
-            <p>Your book appears here.</p>
-            <span>Add a file or some text to begin.</span>
-          </div>
-        </div>
-        <div class="mk-pick" id="mkPick" role="group" aria-label="Selected in the book" hidden>
-          <span class="pk-t" id="mkPickText"></span>
-          <button class="btn primary" id="mkPickAdd" type="button">Add a picture after this paragraph</button>
-          <button class="btn" id="mkPickEdit" type="button">Edit text</button>
-          <button class="mk-icon" id="mkPickX" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-        </div>
-        <div class="wk-dock" role="toolbar" aria-label="Preview">
-          <div class="seg" id="mkDevice" aria-label="Device"><button type="button" data-d="desk" aria-pressed="true">Desktop</button><button type="button" data-d="tablet" aria-pressed="false">Tablet</button><button type="button" data-d="phone" aria-pressed="false">Phone</button></div>
-          <div class="seg" data-key="layout" aria-label="Layout"><button type="button" data-v="scroll">Scroll</button><button type="button" data-v="cards">Chapters</button><button type="button" data-v="paged">Pages</button></div>
-          <button class="btn quiet" id="mkTop" type="button">Back to start</button>
-          <label class="wk-zoom" title="Zoom the preview"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M8.5 11h5M11 8.5v5"/></svg><input type="range" id="mkZoom" min="60" max="100" step="5" value="100" aria-label="Preview zoom"><output id="mkZoomOut">100%</output></label>
-        </div>
-      </section>
-
-      <aside class="wk-right" id="paneDesign" aria-label="Design">
-        <div class="dz-tabs" id="mkDzTabs" role="tablist" aria-label="Design"><button type="button" role="tab" id="dzT-edition" data-dz="edition" aria-controls="dz-edition" aria-selected="true">Edition</button><button type="button" role="tab" id="dzT-type" data-dz="type" aria-controls="dz-type" aria-selected="false">Type</button><button type="button" role="tab" id="dzT-page" data-dz="page" aria-controls="dz-page" aria-selected="false">Page</button><button type="button" role="tab" id="dzT-light" data-dz="light" aria-controls="dz-light" aria-selected="false">Light</button><button type="button" role="tab" id="dzT-pictures" data-dz="pictures" aria-controls="dz-pictures" aria-selected="false">Pictures</button></div>
-        <div class="wk-scroll">
+    <aside class="wk-side" id="paneDesign" data-s="look" aria-label="Look">
+      <header class="wk-sh"><h2>Look</h2><button class="mk-icon" type="button" data-close-side aria-label="Close the look"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></header>
+      <div class="dz-tabs" id="mkDzTabs" role="tablist" aria-label="Design"><button type="button" role="tab" id="dzT-edition" data-dz="edition" aria-controls="dz-edition" aria-selected="true">Edition</button><button type="button" role="tab" id="dzT-type" data-dz="type" aria-controls="dz-type" aria-selected="false">Type</button><button type="button" role="tab" id="dzT-page" data-dz="page" aria-controls="dz-page" aria-selected="false">Page</button><button type="button" role="tab" id="dzT-light" data-dz="light" aria-controls="dz-light" aria-selected="false">Light</button><button type="button" role="tab" id="dzT-pictures" data-dz="pictures" aria-controls="dz-pictures" aria-selected="false">Pictures</button></div>
+      <div class="wk-scroll">
           <div class="dz-panel" id="dz-edition" role="tabpanel" aria-labelledby="dzT-edition">
           <div class="mk-presets" id="mkPresets" role="group" aria-label="Editions"></div>
           <section class="acc"><h3>Colour</h3>
@@ -379,14 +316,69 @@
           </section>
           </div>
         </div>
-      </aside>
-    </div>
+    </aside>
+
+    <section class="wk-canvas" id="paneBook" aria-label="Book preview">
+        <div class="wk-view" id="viewBoard" data-v="board" hidden></div>
+        <div class="wk-view" id="viewLine" data-v="line" hidden></div>
+        <div class="wk-view" id="viewCompare" data-v="compare" hidden></div>
+        <div class="mk-stage" id="mkStage">
+          <div class="mk-thumb" id="mkThumb" role="navigation" aria-label="Chapters and pictures"></div>
+          <div class="mk-arm" id="mkArm" role="status" hidden></div>
+        <div class="mk-words" id="mkWords" role="dialog" aria-label="A picture of the selected words" hidden></div>
+          <iframe id="mkFrame" title="Preview of your book"></iframe>
+          <div class="mk-empty" id="mkEmpty">
+            <svg aria-hidden="true"><use href="#i-lotus"/></svg>
+            <p>Your book appears here.</p>
+            <span>Add a file or some text to begin.</span>
+          </div>
+        </div>
+        <div class="mk-pick" id="mkPick" role="group" aria-label="Selected in the book" hidden>
+          <span class="pk-t" id="mkPickText"></span>
+          <button class="btn primary" id="mkPickAdd" type="button">Add a picture after this paragraph</button>
+          <button class="btn" id="mkPickEdit" type="button">Edit text</button>
+          <button class="mk-icon" id="mkPickX" type="button" aria-label="Dismiss"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="wk-dock" role="toolbar" aria-label="Preview">
+          <div class="seg" id="mkDevice" aria-label="Device"><button type="button" data-d="desk" aria-pressed="true">Desktop</button><button type="button" data-d="tablet" aria-pressed="false">Tablet</button><button type="button" data-d="phone" aria-pressed="false">Phone</button></div>
+          <div class="seg" data-key="layout" aria-label="Layout"><button type="button" data-v="scroll">Scroll</button><button type="button" data-v="cards">Chapters</button><button type="button" data-v="paged">Pages</button></div>
+          <button class="btn quiet" id="mkTop" type="button">Back to start</button>
+          <label class="wk-zoom" title="Zoom the preview"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5M8.5 11h5M11 8.5v5"/></svg><input type="range" id="mkZoom" min="60" max="100" step="5" value="100" aria-label="Preview zoom"><output id="mkZoomOut">100%</output></label>
+        </div>
+    </section>
+
+    <aside class="wk-insp mk-insp" id="mkInsp" aria-label="Picture" hidden></aside>
+
+    <section class="wk-strip" id="mkStripBox" aria-labelledby="mkStripH">
+      <header class="sp-h">
+        <h2 id="mkStripH">Pictures <span id="mkPicCount"></span></h2>
+        <p class="note" id="mkSceneNote" role="status" aria-live="polite"></p>
+        <div class="mk-prog" id="mkProg" role="progressbar" aria-label="Progress" hidden><span id="mkProgTxt"></span><span class="bar"><i id="mkProgBar"></i></span></div>
+        <button class="btn" id="mkStop" type="button" hidden>Stop</button>
+        <details class="sp-set" id="mkStripSet">
+          <summary class="btn quiet">Picture settings</summary>
+          <div class="wk-pop sp-pop">
+            <div class="field"><span>How many</span><div class="seg" data-key="density" aria-label="How many pictures"><button type="button" data-v="few">Few</button><button type="button" data-v="some">Some</button><button type="button" data-v="many">Many</button><button type="button" data-v="every">Every scene</button></div></div>
+            <div class="field"><span>What they show</span><div class="seg" data-key="art" aria-label="What they show"><button type="button" data-v="library">Drawn</button><button type="button" data-v="mixed">Best fit</button><button type="button" data-v="composed">From the text</button></div></div>
+            <p class="note" id="mkArtNote"></p>
+            <div class="row"><button class="btn" id="mkAuto" type="button">Place automatically</button><button class="btn quiet" id="mkClear" type="button">Remove all</button></div>
+            <div class="mk-aibar" id="mkAiBar">
+              <span class="mk-aistate" id="mkAiState"></span>
+              <button class="btn" id="mkPaintAll" type="button" hidden>Paint all with AI</button>
+              <button class="btn" id="mkAiOpen" type="button">AI models…</button>
+            </div>
+            <button class="pn-text" id="mkFindWords" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M4 10h7M4 14h10M4 18h6"/><circle cx="17.5" cy="14.5" r="3"/><path d="M20 17l2 2"/></svg><span><b>Picture any words</b>Select them in the book, or find them here</span></button>
+            <ul class="sp-rm" id="mkRemoved" aria-label="Removed pictures"></ul>
+          </div>
+        </details>
+      </header>
+      <div class="sp-row" id="mkStrip" role="toolbar" aria-label="Pictures, in the order of the book"></div>
+    </section>
 
     <nav class="wk-nav" aria-label="Studio">
-      <button type="button" data-pane="manuscript" data-tab="pictures">Pictures</button>
-      <button type="button" data-pane="manuscript" data-tab="text">Text</button>
-      <button type="button" data-pane="book">Book</button>
-      <button type="button" data-pane="design">Design</button>
+      <button type="button" data-side="none">Book</button>
+      <button type="button" data-side="text">Text</button>
+      <button type="button" data-side="look">Look</button>
     </nav>
   </div>
 

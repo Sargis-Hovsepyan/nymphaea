@@ -1,6 +1,6 @@
 import "./styles.css";
 import "./maker/maker.css";
-import "./maker/shell.css";
+import "./maker/pond.css";
 import { KEYS, readerKey } from "./brand";
 import type { Pristine } from "./export";
 import { initPaged, layoutPaged } from "./layout/paged";
