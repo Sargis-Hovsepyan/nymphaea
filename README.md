@@ -1,6 +1,6 @@
 # Nymphaea
 
-Nymphaea turns any story into an illustrated book: scrolled, in chapter cards, in paged spreads, printed, or as an EPUB. Small drawings act out the story's beats as you reach them, a lamp lights the line you're reading, and every effect can be switched off. Every look comes in a dim light mood and a dim dark mood. **Your words are never changed, cut or reordered.**
+Nymphaea turns any story into an illustrated book: scrolled, in chapter cards, in paged spreads, printed, or as an EPUB. Small drawings act out the story's beats as you reach them, a reading light can follow the line you're reading (off unless you turn it on), and every effect can be switched off. Every look comes in a dim light mood and a dim dark mood. **Your words are never changed, cut or reordered.**
 
 The name comes from the water lily *Nymphaea*. The sacred blue lotus of Egypt grew on the Nile beside papyrus, and it opens with the light and closes at night.
 
@@ -33,7 +33,7 @@ The name comes from the water lily *Nymphaea*. The sacred blue lotus of Egypt gr
    - **Type:** nine typeface pairings. Line length is set in characters (55, 66 or 75), so it holds for every face. Choose indented or spaced paragraphs, ragged or justified text, drop cap, raised cap or small-caps openings, chapter numerals and the scene-break ornament.
    - **Pictures in the page:** how many (Few, Some, Many or Every scene), size (up to Full, a plate wider than the text), placement (in the text, a framed plate, in the margin on wide screens, or as a chapter head) and captions.
    - **Page and paper:** line spacing, hyphenation, paper (plain, grain, laid or linen), the cover (picture, type only or minimal) and reading progress (time left, a bar, or none). Chapter openings come in classic, big numeral, minimal or ornament styles.
-   - **Light & motion:** off, lamp, candle, focus (the paragraph you're reading stays bright) or dawn (each chapter brightens as you read). Lines can rise, fade or ink in.
+   - **Light & motion:** off (the default in every edition), lamp, candle, focus (the paragraph you're reading stays bright) or story (the light follows the hour and weather of the passage). Lines can rise, fade or ink in.
    - **Pictures:** Ink, Cut paper, Glow, Ink wash, Engraving, Stipple, Riso, Generative (grown from the passage's own words), Halftone, Dithered, ASCII, Glass, Ornaments or none.
    - **Optional AI** (Pictures tab → AI models). Nothing needs a model. You can connect:
      - a **text model** to stage the pictures: Ollama, LM Studio, Groq, any OpenAI-compatible server, or Claude with your own Anthropic API key. Its plan goes through the same Guard, and it can pick drawn scenes or describe composed ones.
