@@ -13,7 +13,7 @@ import { SCENE_DESC, SCENE_LIST, isScene, words } from "./keywords";
 const ART_RULE: Record<Art, string> = {
   library: "- Use the listed scene ids; compose a scene only when none of them fits at all.\n",
   mixed: "- Prefer composing a scene, with its acts, whenever the passage names a place or something happening, so the picture acts out this very moment. Use a listed scene id only when it fits the passage clearly.\n",
-  composed: "- Compose every picture, with its acts; do not use the listed scene ids.\n",
+  composed: "- Compose every picture, with its acts.\n",
 };
 
 /** `budget` caps the characters of text sent, for models with a small request limit. */
