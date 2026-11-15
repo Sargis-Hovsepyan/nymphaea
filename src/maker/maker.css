@@ -170,10 +170,6 @@ summary.mk-icon::-webkit-details-marker{display:none}
 .card-acts .btn{min-height:34px;padding:0 var(--sp-3);font-size:var(--fs-2)}
 .card-acts .btn[aria-pressed="true"]{border-color:var(--accent)}
 @keyframes mkshine{to{background-position:-150% 0}}
-.mk-gen{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:var(--sp-2);align-items:center}
-.mk-gen select{min-height:34px;padding:0 var(--sp-2);font-size:var(--fs-2)}
-.mk-gen .btn{min-height:34px;padding:0 var(--sp-3);font-size:var(--fs-2)}
-.mk-gen-d{grid-column:1/-1;margin:0;font-size:var(--fs-2);color:var(--muted);line-height:1.4}
 .mk-paint{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center}
 .mk-paint .btn{min-height:34px;padding:0 var(--sp-3);font-size:var(--fs-2)}
 .mk-paint details{flex-basis:100%;font-size:var(--fs-2)}
