@@ -1,0 +1,2 @@
+# LF everywhere, so a build on Windows writes the same index.html as CI (which checks it is fresh).
+* text=auto eol=lf
